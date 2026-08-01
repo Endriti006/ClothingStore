@@ -1,0 +1,193 @@
+import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from '../components/Link';
+import { formatPrice } from '../lib/format';
+import {
+  useCart,
+  cartSubtotal,
+  updateQuantity,
+  removeFromCart,
+  clearCart,
+} from '../lib/cart';
+
+export function CartPage() {
+  const items = useCart();
+  const [payOpen, setPayOpen] = useState(false);
+  const subtotal = cartSubtotal();
+  const shipping = subtotal === 0 || subtotal >= 75 ? 0 : 6.99;
+  const total = subtotal + shipping;
+
+  if (items.length === 0) {
+    return (
+      <div className="mx-auto flex max-w-7xl flex-col items-center px-4 py-24 text-center">
+        <div className="rounded-full bg-stone-100 p-4">
+          <ShoppingBag size={28} className="text-stone-500" />
+        </div>
+        <h1 className="mt-5 text-2xl font-bold text-stone-900">Your cart is empty</h1>
+        <p className="mt-2 text-sm text-stone-500">Add products from the catalog to get started.</p>
+        <Link
+          route={{ name: 'catalog' }}
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-stone-900 px-6 text-sm font-semibold text-white hover:bg-stone-800"
+        >
+          Continue Shopping
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">Your Cart</h1>
+        <button
+          onClick={clearCart}
+          className="text-sm font-medium text-stone-500 hover:text-stone-900"
+        >
+          Clear cart
+        </button>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+        <section className="space-y-4">
+          {items.map((item) => (
+            <article
+              key={`${item.productId}-${item.size}-${item.color}`}
+              className="grid grid-cols-[88px_1fr] gap-4 rounded-lg border border-stone-200 p-4 sm:grid-cols-[112px_1fr_auto]"
+            >
+              <Link route={{ name: 'product', slug: item.slug }} className="block overflow-hidden rounded-md bg-stone-100">
+                {item.image ? (
+                  <img src={item.image} alt={item.name} className="h-24 w-full object-cover sm:h-28" />
+                ) : (
+                  <div className="h-24 w-full sm:h-28" />
+                )}
+              </Link>
+
+              <div>
+                <Link route={{ name: 'product', slug: item.slug }} className="text-sm font-semibold text-stone-900 hover:text-stone-700">
+                  {item.name}
+                </Link>
+                <p className="mt-1 text-xs text-stone-500">Size: {item.size} | Color: {item.color}</p>
+                <p className="mt-2 text-sm font-medium text-stone-700">{formatPrice(item.price)}</p>
+
+                <div className="mt-3 inline-flex items-center rounded-md border border-stone-200">
+                  <button
+                    onClick={() => updateQuantity(item.productId, item.size, item.color, item.quantity - 1)}
+                    className="flex h-9 w-9 items-center justify-center text-stone-600 hover:text-stone-900"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-8 text-center text-sm font-semibold text-stone-900">{item.quantity}</span>
+                  <button
+                    onClick={() => updateQuantity(item.productId, item.size, item.color, item.quantity + 1)}
+                    className="flex h-9 w-9 items-center justify-center text-stone-600 hover:text-stone-900"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-end justify-between sm:pl-4">
+                <button
+                  onClick={() => removeFromCart(item.productId, item.size, item.color)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-stone-500 hover:text-red-600"
+                >
+                  <Trash2 size={13} /> Remove
+                </button>
+                <p className="text-sm font-semibold text-stone-900">
+                  {formatPrice(item.price * item.quantity)}
+                </p>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <aside className="h-fit rounded-xl border border-stone-200 p-5 lg:sticky lg:top-24">
+          <h2 className="text-base font-semibold text-stone-900">Order Summary</h2>
+          <div className="mt-4 space-y-2 text-sm">
+            <div className="flex items-center justify-between text-stone-600">
+              <span>Subtotal</span>
+              <span className="font-medium text-stone-900">{formatPrice(subtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between text-stone-600">
+              <span>Shipping</span>
+              <span className="font-medium text-stone-900">
+                {shipping === 0 ? 'Free' : formatPrice(shipping)}
+              </span>
+            </div>
+            <div className="border-t border-stone-200 pt-2" />
+            <div className="flex items-center justify-between text-stone-900">
+              <span className="font-semibold">Total</span>
+              <span className="text-lg font-bold">{formatPrice(total)}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setPayOpen(true)}
+            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800"
+          >
+            Proceed to Checkout
+          </button>
+          <Link
+            route={{ name: 'catalog' }}
+            className="mt-3 inline-flex w-full items-center justify-center text-sm font-medium text-stone-600 hover:text-stone-900"
+          >
+            Continue shopping
+          </Link>
+        </aside>
+      </div>
+
+      {payOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            className="absolute inset-0 bg-stone-900/60"
+            aria-label="Close payment popup"
+            onClick={() => setPayOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-stone-900">Payment</h2>
+            <p className="mt-2 text-sm text-stone-600">
+              This is your checkout popup. Next step is connecting a real payment provider.
+            </p>
+
+            <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 p-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-600">Subtotal</span>
+                <span className="font-medium text-stone-900">{formatPrice(subtotal)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-stone-600">Shipping</span>
+                <span className="font-medium text-stone-900">
+                  {shipping === 0 ? 'Free' : formatPrice(shipping)}
+                </span>
+              </div>
+              <div className="mt-2 border-t border-stone-200 pt-2 flex items-center justify-between">
+                <span className="font-semibold text-stone-900">Total</span>
+                <span className="text-base font-bold text-stone-900">{formatPrice(total)}</span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setPayOpen(false)}
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-stone-300 text-sm font-medium text-stone-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setPayOpen(false);
+                  window.alert('Payment flow confirmed. Integrate provider in next step.');
+                }}
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800"
+              >
+                Pay now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
