@@ -9,6 +9,7 @@ import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
+import { SizeGuidePage } from './pages/SizeGuidePage';
 import { useI18n } from './lib/i18n';
 import { usePageSeo } from './lib/seo';
 
@@ -53,12 +54,21 @@ function App() {
       page = <AccountPage />;
       break;
     case 'admin':
-      isAdmin = true;
-      page = <AdminPage />;
-      break;
-    default:
-      page = <NotFound />;
-  }
+          isAdmin = true;
+          page = <AdminPage />;
+          break;
+        case 'info':
+          switch (route.slug) {
+            case 'size-guide':
+              page = <SizeGuidePage />;
+              break;
+            default:
+              page = <NotFound />;
+          }
+          break;
+        default:
+          page = <NotFound />;
+      }
 
   if (isAdmin) {
     return <>{page}</>;
