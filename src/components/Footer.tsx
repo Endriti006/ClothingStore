@@ -55,9 +55,9 @@ export function Footer() {
             <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-900">{t('footer.help')}</h4>
             <ul className="mt-4 space-y-2.5 text-sm text-stone-500">
               <li><a href="#" className="hover:text-stone-900">{t('footer.shipping')}</a></li>
-              <li><a href="#" className="hover:text-stone-900">{t('footer.guide')}</a></li>
-              <li><a href="#" className="hover:text-stone-900">{t('footer.track')}</a></li>
-              <li><a href="#" className="hover:text-stone-900">{t('footer.contact')}</a></li>
+                            <li><Link route={{ name: 'info', slug: 'size-guide' }} className="hover:text-stone-900">{t('footer.guide')}</Link></li>
+                            <li><a href="#" className="hover:text-stone-900">{t('footer.track')}</a></li>
+                            <li><a href="#" className="hover:text-stone-900">{t('footer.contact')}</a></li>
             </ul>
           </div>
 
