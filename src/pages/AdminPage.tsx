@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Link } from '../components/Link';
 import {
   createCategory,
@@ -154,6 +154,7 @@ export function AdminPage() {
   const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [categorySuccess, setCategorySuccess] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const isAuthenticated = isAdminAuthenticated();
   const adminSession = getAdminSession();
@@ -190,6 +191,37 @@ export function AdminPage() {
     && rootCategories.some((category) => normalizeSlug(category.slug) === 'femra');
 
   const rootCategoryCount = rootCategories.length;
+
+  // Compute preview images from URL text and file uploads
+  const [previewImageUrls, setPreviewImageUrls] = useState<string[]>([]);
+  useEffect(() => {
+    const manualUrls = imagesText
+      .split(/\r?\n|,/)
+      .map((url) => url.trim())
+      .filter(Boolean);
+
+    if (imageFiles.length === 0) {
+      setPreviewImageUrls(manualUrls);
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all(imageFiles.map((file) => fileToDataUrl(file)))
+      .then((uploadedUrls) => {
+        if (!cancelled) {
+          setPreviewImageUrls([...manualUrls, ...uploadedUrls]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewImageUrls(manualUrls);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imagesText, imageFiles]);
 
   const stats = [
     { label: t('admin.products'), value: String(products.length) },
@@ -822,6 +854,43 @@ export function AdminPage() {
               </Field>
             </section>
 
+            {/* Preview Toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPreview((prev) => !prev)}
+                className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  showPreview
+                    ? 'border-stone-900 bg-stone-900 text-white'
+                    : 'border-stone-300 bg-white text-stone-700 hover:border-stone-400'
+                }`}
+              >
+                {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPreview ? 'Hide Preview' : 'Preview Product Card'}
+              </button>
+            </div>
+
+            {/* Live Preview Card */}
+            {showPreview && (
+              <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-6">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-amber-700">
+                  Live Preview — How the product will appear in the catalog listing
+                </p>
+                <div className="mx-auto max-w-[280px]">
+                  <ProductCardPreview
+                    name={name}
+                    brand={brand}
+                    price={price}
+                    compareAtPrice={compareAtPrice}
+                    featured={featured}
+                    status={status}
+                    images={previewImageUrls}
+                    variants={variants}
+                  />
+                </div>
+              </div>
+            )}
+
             <section className="space-y-3 rounded-lg border border-stone-200 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-base font-semibold text-stone-900">Variants (size / color / stock)</h2>
@@ -1183,6 +1252,127 @@ export function AdminPage() {
             </div>
           )}
         </section>
+      </div>
+    </div>
+  );
+}
+
+function ProductCardPreview({
+  name,
+  brand,
+  price,
+  compareAtPrice,
+  featured,
+  status,
+  images,
+  variants,
+}: {
+  name: string;
+  brand: string;
+  price: string;
+  compareAtPrice: string;
+  featured: boolean;
+  status: string;
+  images: string[];
+  variants: VariantDraft[];
+}) {
+  const parsedPrice = Number(price);
+  const parsedCompareAt = compareAtPrice.trim() ? Number(compareAtPrice) : null;
+  const discount = parsedCompareAt && parsedCompareAt > parsedPrice
+    ? Math.round(((parsedCompareAt - parsedPrice) / parsedCompareAt) * 100)
+    : null;
+
+  const totalStock = variants.reduce((sum, v) => sum + Math.max(0, Number.parseInt(v.stock || '0', 10) || 0), 0);
+  const outOfStock = status === 'out_of_stock' || totalStock <= 0;
+
+  const image = images[0];
+  const hoverImage = images[1] ?? image;
+
+  const displayName = name.trim() || 'Product Name';
+  const displayBrand = brand.trim() || 'Brand';
+
+  return (
+    <div className="group block">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-stone-100">
+        {image ? (
+          <>
+            <img
+              src={image}
+              alt={displayName}
+              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500 group-hover:opacity-0"
+            />
+            {hoverImage && (
+              <img
+                src={hoverImage}
+                alt={displayName}
+                className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+              />
+            )}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-stone-400">
+            <div className="text-center">
+              <svg className="mx-auto h-10 w-10 text-stone-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+              </svg>
+              <p className="mt-2 text-xs text-stone-400">No image yet</p>
+            </div>
+          </div>
+        )}
+
+        <div className="absolute left-3 top-3 flex flex-col gap-1.5">
+          {discount && (
+            <span className="bg-stone-900 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+              -{discount}%
+            </span>
+          )}
+          {featured && !discount && (
+            <span className="bg-amber-500 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+              Featured
+            </span>
+          )}
+        </div>
+
+        {outOfStock && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+            <span className="bg-stone-900 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
+              Out of Stock
+            </span>
+          </div>
+        )}
+
+        <div className="absolute bottom-0 left-0 right-0 translate-y-full bg-stone-900/95 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-white transition-transform duration-300 group-hover:translate-y-0">
+          View Details
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-stone-400">
+          {displayBrand}
+        </p>
+        <h3 className="mt-0.5 text-sm font-medium text-stone-800 group-hover:text-stone-950">
+          {displayName}
+        </h3>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="text-sm font-semibold text-stone-900">
+            {isNaN(parsedPrice) || parsedPrice <= 0 ? '$0.00' : formatPrice(parsedPrice)}
+          </span>
+          {parsedCompareAt && parsedCompareAt > 0 && (
+            <span className="text-xs text-stone-400 line-through">
+              {formatPrice(parsedCompareAt)}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill="#d6d3d1" className="text-stone-300">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+            ))}
+          </div>
+          <span className="text-[11px] text-stone-400">(0)</span>
+        </div>
       </div>
     </div>
   );
