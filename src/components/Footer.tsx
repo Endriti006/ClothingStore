@@ -45,9 +45,7 @@ export function Footer() {
             <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-900">{t('footer.shop')}</h4>
             <ul className="mt-4 space-y-2.5 text-sm text-stone-500">
               <li><Link route={{ name: 'catalog', category: 'meshkuj' }} className="hover:text-stone-900">{t('common.men')}</Link></li>
-              <li><Link route={{ name: 'catalog', category: 'femra' }} className="hover:text-stone-900">{t('common.women')}</Link></li>
-              <li><Link route={{ name: 'catalog', category: 'kepuce' }} className="hover:text-stone-900">{t('common.shoes')}</Link></li>
-              <li><Link route={{ name: 'catalog', category: 'aksesoore' }} className="hover:text-stone-900">{t('common.accessories')}</Link></li>
+                            <li><Link route={{ name: 'catalog', category: 'femra' }} className="hover:text-stone-900">{t('common.women')}</Link></li>
             </ul>
           </div>
 
