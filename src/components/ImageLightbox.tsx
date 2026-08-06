@@ -26,23 +26,41 @@ export function ImageLightbox({ images, activeIndex, onClose, onPrev, onNext }: 
   }, [handleKey]);
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center">
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white text-sm font-medium z-10">
-        Close ✕
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/95 p-3 sm:p-6 md:p-8">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-3 top-3 z-10 rounded-full bg-white/10 p-2 text-white/90 transition hover:bg-white/20 hover:text-white sm:right-4 sm:top-4"
+        aria-label="Close image viewer"
+      >
+        <X size={20} />
       </button>
-      <button onClick={onPrev} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white z-10">
-        <ChevronLeft size={32} />
+
+      <button
+        type="button"
+        onClick={onPrev}
+        className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white/90 transition hover:bg-white/20 hover:text-white sm:left-4 sm:p-3"
+        aria-label="Previous image"
+      >
+        <ChevronLeft size={24} />
       </button>
-      <button onClick={onNext} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white z-10">
-        <ChevronRight size={32} />
+
+      <button
+        type="button"
+        onClick={onNext}
+        className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white/90 transition hover:bg-white/20 hover:text-white sm:right-4 sm:p-3"
+        aria-label="Next image"
+      >
+        <ChevronRight size={24} />
       </button>
+
       <img
         src={images[activeIndex]?.url}
         alt={images[activeIndex]?.url ? 'Product image' : ''}
-        className="max-h-[90vh] max-w-[90vw] object-contain cursor-zoom-in"
-        onClick={onNext}
+        className="h-[85dvh] w-auto max-w-[95vw] rounded-lg object-contain shadow-2xl sm:h-[88dvh] sm:max-w-[90vw]"
       />
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+
+      <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 sm:bottom-6">
         {images.map((_, i) => (
           <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === activeIndex ? 'bg-white' : 'bg-white/40'}`} />
         ))}
