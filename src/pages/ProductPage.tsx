@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingBag, Truck, RefreshCw, 
 import { Link } from '../components/Link';
 import { ProductCard } from '../components/ProductCard';
 import { RatingStars } from '../components/RatingStars';
+import { ImageLightbox } from '../components/ImageLightbox';
 import { fetchProductBySlug, fetchRelatedProducts } from '../lib/catalog';
 import { useAddToCart, useCartCount } from '../lib/cart';
 import { usePageSeo } from '../lib/seo';
@@ -21,6 +22,8 @@ export function ProductPage({ slug }: { slug: string }) {
   const [added, setAdded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [error, setError] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const addToCart = useAddToCart();
   const navigate = useNavigate();
@@ -130,6 +133,28 @@ export function ProductPage({ slug }: { slug: string }) {
     setTimeout(() => setAdded(false), 2500);
   };
 
+  const openLightbox = (index: number) => {
+    setActiveImage(index);
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const closeLightbox = () => setLightboxOpen(false);
+
+  const showPrevImage = () => {
+    if (!images.length) return;
+    const nextIndex = (lightboxIndex - 1 + images.length) % images.length;
+    setLightboxIndex(nextIndex);
+    setActiveImage(nextIndex);
+  };
+
+  const showNextImage = () => {
+    if (!images.length) return;
+    const nextIndex = (lightboxIndex + 1) % images.length;
+    setLightboxIndex(nextIndex);
+    setActiveImage(nextIndex);
+  };
+
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -181,14 +206,21 @@ export function ProductPage({ slug }: { slug: string }) {
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
         {/* Gallery */}
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-stone-100">
-            {images[activeImage] && (
-              <img
-                src={images[activeImage].url}
-                alt={product.name}
-                className="h-full w-full object-cover"
-              />
-            )}
+          <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-stone-100">
+            <button
+              type="button"
+              onClick={() => openLightbox(activeImage)}
+              className="absolute inset-0 flex h-full w-full items-center justify-center"
+              aria-label="Open image viewer"
+            >
+              {images[activeImage] && (
+                <img
+                  src={images[activeImage].url}
+                  alt={product.name}
+                  className="h-full w-full object-contain cursor-zoom-in"
+                />
+              )}
+            </button>
             {images.length > 1 && (
               <>
                 <button
@@ -218,17 +250,27 @@ export function ProductPage({ slug }: { slug: string }) {
               {images.map((img, i) => (
                 <button
                   key={img.id}
-                  onClick={() => setActiveImage(i)}
+                  onClick={() => openLightbox(i)}
                   className={`relative h-20 w-16 overflow-hidden rounded-md border-2 transition-colors ${
                     i === activeImage ? 'border-stone-900' : 'border-transparent hover:border-stone-300'
                   }`}
                 >
-                  <img src={img.url} alt="" className="h-full w-full object-cover" />
+                  <img src={img.url} alt="" className="h-full w-full object-contain" />
                 </button>
               ))}
             </div>
           )}
         </div>
+
+        {lightboxOpen && images.length > 0 && (
+          <ImageLightbox
+            images={images}
+            activeIndex={lightboxIndex}
+            onClose={closeLightbox}
+            onPrev={showPrevImage}
+            onNext={showNextImage}
+          />
+        )}
 
         {/* Info */}
         <div>
@@ -522,7 +564,7 @@ function DetailRow({ title, content }: { title: string; content: string }) {
 
 function topCategorySlug(slug: string): string {
   const top = slug.split('-')[0];
-  const topLevel = new Set(['meshkuj', 'femra', 'kepuce', 'aksesoore']);
+  const topLevel = new Set(['meshkuj', 'femra']);
   return topLevel.has(top) ? top : slug;
 }
 
@@ -531,8 +573,6 @@ function topCategoryLabel(slug: string): string {
   const labels: Record<string, string> = {
     meshkuj: 'Meshkuj',
     femra: 'Femra',
-    kepuce: 'Këpucë',
-    aksesoore: 'Aksesorë',
   };
   return labels[normalizedSlug] ?? slug;
 }
