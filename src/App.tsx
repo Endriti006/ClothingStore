@@ -39,7 +39,7 @@ function App() {
       page = <HomePage />;
       break;
     case 'catalog':
-      page = <CatalogPage category={route.category} query={route.query} />;
+      page = <CatalogPage category={route.category} query={route.query} audience={route.audience} />;
       break;
     case 'product':
       page = <ProductPage slug={route.slug} />;
