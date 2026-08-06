@@ -12,7 +12,7 @@ export type InfoPageSlug =
 
 export type Route =
   | { name: 'home' }
-  | { name: 'catalog'; category?: string; query?: string }
+  | { name: 'catalog'; category?: string; query?: string; audience?: string }
   | { name: 'product'; slug: string }
   | { name: 'cart' }
   | { name: 'checkout' }
@@ -29,7 +29,12 @@ function parseHash(): Route {
 
   if (parts.length === 0) return { name: 'home' };
   if (parts[0] === 'catalog') {
-    return { name: 'catalog', category: parts[1], query: params.get('q') || undefined };
+    return {
+      name: 'catalog',
+      category: parts[1],
+      query: params.get('q') || undefined,
+      audience: params.get('audience') || undefined,
+    };
   }
   if (parts[0] === 'product' && parts[1]) return { name: 'product', slug: parts[1] };
   if (parts[0] === 'cart') return { name: 'cart' };
@@ -49,10 +54,14 @@ export function buildHash(route: Route): string {
   switch (route.name) {
     case 'home':
       return '#/';
-    case 'catalog':
-      return route.category
-        ? `#/catalog/${route.category}`
-        : '#/catalog';
+    case 'catalog': {
+      const qs = new URLSearchParams();
+      if (route.query) qs.set('q', route.query);
+      if (route.audience) qs.set('audience', route.audience);
+      const qstr = qs.toString();
+      const base = route.category ? `#/catalog/${route.category}` : '#/catalog';
+      return qstr ? `${base}?${qstr}` : base;
+    }
     case 'product':
       return `#/product/${route.slug}`;
     case 'cart':
