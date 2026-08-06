@@ -58,6 +58,7 @@ export async function fetchNewArrivals(limit = 8): Promise<ProductWithRelations[
 
 export type CatalogFilters = {
   category?: string; // slug
+  search?: string;
   audiences?: ProductAudience[];
   sizes?: string[];
   colors?: string[];
@@ -211,13 +212,6 @@ function normalizeCategorySlug(value: string): string {
   return aliases[normalized] ?? normalized;
 }
 
-function audienceFromTopCategory(slug: string): ProductAudience | null {
-  const normalized = normalizeCategorySlug(slug);
-  if (normalized === 'meshkuj') return 'men';
-  if (normalized === 'femra') return 'women';
-  return null;
-}
-
 function collectCategoryTreeIds(
   categories: Array<{ id: string; parent_id: string | null }>,
   rootIds: string[]
@@ -256,34 +250,33 @@ export async function fetchCatalog(filters: CatalogFilters = {}): Promise<Catalo
     `, { count: 'exact' })
     .eq('status', 'published');
 
-  if (filters.category) {
-    const topAudience = audienceFromTopCategory(filters.category);
-    if (topAudience && canUseAudience) {
-      query = query.eq('audience', topAudience);
-    } else {
-      // Fetch the selected category and all its descendants so shared categories
-      // like hats can show a unified listing.
-      const { data: cats } = await supabase
-        .from('categories')
-        .select('id, parent_id, slug');
-      if (cats && cats.length) {
-        const requested = normalizeCategorySlug(filters.category);
-        const matched = cats
-          .filter((c) => normalizeCategorySlug(c.slug) === requested)
-          .map((c) => c.id);
+    if (filters.category) {
+    // Fetch the selected category and all its descendants so shared categories
+    // like hats can show a unified listing.
+    const { data: cats } = await supabase
+      .from('categories')
+      .select('id, parent_id, slug');
+    if (cats && cats.length) {
+      const requested = normalizeCategorySlug(filters.category);
+      const matched = cats
+        .filter((c) => normalizeCategorySlug(c.slug) === requested)
+        .map((c) => c.id);
 
-        if (matched.length === 0) {
-          return { products: [], total: 0, page, pageSize };
-        }
-
-        if (matched.length) {
-          const allCategoryIds = collectCategoryTreeIds(cats, matched);
-          query = query.in('category_id', allCategoryIds);
-        }
-      } else {
+      if (matched.length === 0) {
         return { products: [], total: 0, page, pageSize };
       }
+
+      if (matched.length) {
+        const allCategoryIds = collectCategoryTreeIds(cats, matched);
+        query = query.in('category_id', allCategoryIds);
+      }
+    } else {
+      return { products: [], total: 0, page, pageSize };
     }
+  }
+
+  if (filters.search) {
+    query = query.ilike('name', `%${filters.search}%`);
   }
 
   if (canUseAudience && filters.audiences && filters.audiences.length) {
