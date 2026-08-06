@@ -30,7 +30,6 @@ type ProductEditDraft = {
   name: string;
   slug: string;
   price: string;
-  parent_category_id: string;
   category_id: string;
   audience: ProductAudience;
   status: Product['status'];
@@ -75,43 +74,21 @@ function renderSubmitError(error: unknown): string {
   return combined;
 }
 
-function buildProductEdits(rows: AdminProductListItem[], categories: Category[]): Record<string, ProductEditDraft> {
+function buildProductEdits(rows: AdminProductListItem[], _categories: Category[]): Record<string, ProductEditDraft> {
   const entries = rows.map((row) => [
     row.id,
-    (() => {
-      const currentCategory = categories.find((category) => category.id === row.category_id);
-      const parentCategoryId = currentCategory?.parent_id ?? (currentCategory?.id ?? '');
-
-      return {
-        name: row.name,
-        slug: row.slug,
-        price: String(row.price),
-        parent_category_id: parentCategoryId,
-        category_id: currentCategory?.parent_id ? currentCategory.id : '',
-        audience: row.audience,
-        status: row.status,
-        featured: row.featured,
-      };
-    })(),
+    {
+      name: row.name,
+      slug: row.slug,
+      price: String(row.price),
+      category_id: row.category_id ?? '',
+      audience: row.audience,
+      status: row.status,
+      featured: row.featured,
+    },
   ] as const);
 
   return Object.fromEntries(entries);
-}
-
-function normalizeSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
-
-function audienceFromCategorySlug(value: string): ProductAudience | null {
-  const normalized = normalizeSlug(value);
-  if (normalized === 'meshkuj') return 'men';
-  if (normalized === 'femra') return 'women';
-  return null;
 }
 
 export function AdminPage() {
@@ -129,7 +106,6 @@ export function AdminPage() {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [compareAtPrice, setCompareAtPrice] = useState('');
-  const [parentCategoryId, setParentCategoryId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [audience, setAudience] = useState<ProductAudience>('unisex');
   const [brand, setBrand] = useState('');
@@ -171,26 +147,7 @@ export function AdminPage() {
     return [...categories].sort((a, b) => a.name.localeCompare(b.name));
   }, [categories]);
 
-  const rootCategories = useMemo(() => {
-    const roots = sortedCategories.filter((category) => !category.parent_id);
-    return roots.sort((left, right) => {
-      const leftSlug = normalizeSlug(left.slug);
-      const rightSlug = normalizeSlug(right.slug);
-      const leftPriority = leftSlug === 'meshkuj' ? 0 : leftSlug === 'femra' ? 1 : 2;
-      const rightPriority = rightSlug === 'meshkuj' ? 0 : rightSlug === 'femra' ? 1 : 2;
-      return leftPriority - rightPriority || left.name.localeCompare(right.name);
-    });
-  }, [sortedCategories]);
-
-  const childCategories = useMemo(
-    () => sortedCategories.filter((category) => category.parent_id === parentCategoryId),
-    [sortedCategories, parentCategoryId]
-  );
-
-  const hasPrimaryRoots = rootCategories.some((category) => normalizeSlug(category.slug) === 'meshkuj')
-    && rootCategories.some((category) => normalizeSlug(category.slug) === 'femra');
-
-  const rootCategoryCount = rootCategories.length;
+  const hasCategories = categories.length > 0;
 
   // Compute preview images from URL text and file uploads
   const [previewImageUrls, setPreviewImageUrls] = useState<string[]>([]);
@@ -226,7 +183,6 @@ export function AdminPage() {
   const stats = [
     { label: t('admin.products'), value: String(products.length) },
     { label: t('admin.categories'), value: String(categories.length) },
-    { label: t('admin.roots'), value: String(rootCategoryCount) },
   ];
 
   const loadAdminData = async () => {
@@ -276,7 +232,6 @@ export function AdminPage() {
     setDescription('');
     setPrice('');
     setCompareAtPrice('');
-    setParentCategoryId('');
     setCategoryId('');
     setAudience('unisex');
     setBrand('');
@@ -300,12 +255,7 @@ export function AdminPage() {
     setError(null);
     setSuccess(null);
 
-    if (parentCategoryId && !categoryId && childCategories.length > 0) {
-      setError('Please choose a subcategory under the selected big category.');
-      return;
-    }
-
-    const selectedCategoryId = categoryId || parentCategoryId;
+    const selectedCategoryId = categoryId;
 
     const parsedPrice = Number(price);
     if (!name.trim()) {
@@ -463,15 +413,7 @@ export function AdminPage() {
       return;
     }
 
-    const availableChildren = sortedCategories.filter(
-      (category) => category.parent_id === draft.parent_category_id
-    );
-    if (draft.parent_category_id && !draft.category_id && availableChildren.length > 0) {
-      setError('Please choose a subcategory before saving this product.');
-      return;
-    }
-
-    const selectedCategoryId = draft.category_id || draft.parent_category_id;
+    const selectedCategoryId = draft.category_id;
 
     try {
       setSavingProductId(productId);
@@ -500,40 +442,24 @@ export function AdminPage() {
   const onCreateDefaultCategories = async () => {
     const defaults = [
       {
-        name: 'Meshkuj',
-        slug: 'meshkuj',
-        image_url: 'https://images.pexels.com/photos/1183266/pexels-photo-1183266.jpeg?auto=compress&cs=tinysrgb&w=1200',
-        children: [
-          { name: 'T-Shirts', slug: 'meshkuj-t-shirts', image_url: 'https://images.pexels.com/photos/6311392/pexels-photo-6311392.jpeg?auto=compress&cs=tinysrgb&w=1200' },
-          { name: 'Shoes', slug: 'meshkuj-shoes', image_url: 'https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&w=1200' },
-        ],
+        name: 'T-Shirts',
+        slug: 't-shirts',
+        image_url: 'https://images.pexels.com/photos/6311392/pexels-photo-6311392.jpeg?auto=compress&cs=tinysrgb&w=1200',
       },
       {
-        name: 'Femra',
-        slug: 'femra',
-        image_url: 'https://images.pexels.com/photos/7679720/pexels-photo-7679720.jpeg?auto=compress&cs=tinysrgb&w=1200',
-        children: [
-          { name: 'T-Shirts', slug: 'femra-t-shirts', image_url: 'https://images.pexels.com/photos/6940966/pexels-photo-6940966.jpeg?auto=compress&cs=tinysrgb&w=1200' },
-          { name: 'Shoes', slug: 'femra-shoes', image_url: 'https://images.pexels.com/photos/6046235/pexels-photo-6046235.jpeg?auto=compress&cs=tinysrgb&w=1200' },
-        ],
+        name: 'Shoes',
+        slug: 'kepuce',
+        image_url: 'https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&w=1200',
       },
       {
         name: 'Hats',
         slug: 'hats',
         image_url: 'https://images.pexels.com/photos/1124468/pexels-photo-1124468.jpeg?auto=compress&cs=tinysrgb&w=1200',
-        children: [],
       },
       {
-        name: 'Kepuce',
-        slug: 'kepuce',
-        image_url: 'https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&w=1200',
-        children: [],
-      },
-      {
-        name: 'Aksesoore',
+        name: 'Accessories',
         slug: 'aksesoore',
         image_url: 'https://images.pexels.com/photos/934070/pexels-photo-934070.jpeg?auto=compress&cs=tinysrgb&w=1200',
-        children: [],
       },
     ];
 
@@ -543,43 +469,20 @@ export function AdminPage() {
       const bySlug = new Map(existing.map((c) => [c.slug, c] as const));
       let createdCount = 0;
 
-      for (const root of defaults) {
-        let rootCategory = bySlug.get(root.slug);
-        if (!rootCategory) {
-          rootCategory = await createCategory({
-            name: root.name,
-            slug: root.slug,
+      for (const cat of defaults) {
+        const existingCat = bySlug.get(cat.slug);
+        if (!existingCat) {
+          const created = await createCategory({
+            name: cat.name,
+            slug: cat.slug,
             parent_id: null,
-            image_url: root.image_url,
+            image_url: cat.image_url,
           });
-          bySlug.set(rootCategory.slug, rootCategory);
+          bySlug.set(created.slug, created);
           createdCount += 1;
-        } else if (!rootCategory.image_url && root.image_url) {
-          rootCategory = await updateCategoryById(rootCategory.id, { image_url: root.image_url });
-          bySlug.set(rootCategory.slug, rootCategory);
-        }
-
-        for (const child of root.children) {
-          const existingChild = bySlug.get(child.slug);
-          if (!existingChild) {
-            const createdChild = await createCategory({
-              name: child.name,
-              slug: child.slug,
-              parent_id: rootCategory.id,
-              image_url: child.image_url,
-            });
-            bySlug.set(createdChild.slug, createdChild);
-            createdCount += 1;
-            continue;
-          }
-
-          if (!existingChild.image_url && child.image_url) {
-            const updatedChild = await updateCategoryById(existingChild.id, {
-              image_url: child.image_url,
-              parent_id: existingChild.parent_id ?? rootCategory.id,
-            });
-            bySlug.set(updatedChild.slug, updatedChild);
-          }
+        } else if (!existingCat.image_url && cat.image_url) {
+          const updated = await updateCategoryById(existingCat.id, { image_url: cat.image_url });
+          bySlug.set(updated.slug, updated);
         }
       }
 
@@ -688,7 +591,7 @@ export function AdminPage() {
             <h2 className="text-lg font-semibold text-stone-900">{t('admin.createProduct')}</h2>
 
             <section className="grid gap-4 sm:grid-cols-2">
-              {!hasPrimaryRoots && (
+              {!hasCategories && (
                 <div className="sm:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   <p>{t('admin.missingRootCategories')}</p>
                   <button
@@ -702,38 +605,12 @@ export function AdminPage() {
               )}
               <Field label={t('admin.bigCategory')}>
                 <select
-                  value={parentCategoryId}
-                  onChange={(e) => {
-                    const nextParentId = e.target.value;
-                    setParentCategoryId(nextParentId);
-                    setCategoryId('');
-                    const selectedRoot = rootCategories.find((category) => category.id === nextParentId);
-                    const inferredAudience = selectedRoot ? audienceFromCategorySlug(selectedRoot.slug) : null;
-                    if (inferredAudience) setAudience(inferredAudience);
-                  }}
-                  className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
-                >
-                  <option value="">{t('admin.noBigCategory')}</option>
-                  {rootCategories.map((category) => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label={t('admin.subcategory')}>
-                <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
-                  disabled={!parentCategoryId || childCategories.length === 0}
-                  className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-stone-100"
+                  className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
                 >
-                  <option value="">
-                    {!parentCategoryId
-                      ? t('admin.selectBigFirst')
-                      : childCategories.length === 0
-                        ? t('admin.noSubcategories')
-                        : t('admin.selectSubcategory')}
-                  </option>
-                  {childCategories.map((category) => (
+                  <option value="">No category</option>
+                  {sortedCategories.map((category) => (
                     <option key={category.id} value={category.id}>{category.name}</option>
                   ))}
                 </select>
@@ -1015,7 +892,7 @@ export function AdminPage() {
                 ))}
               </select>
               <p className="mt-1 text-xs text-stone-500">
-                Tip: set parent to Meshkuj or Femra so these products appear when those top categories are opened.
+                Optional: group categories under a parent for nested browsing.
               </p>
             </Field>
             <Field label="Category image upload (no URL needed)">
@@ -1111,9 +988,6 @@ export function AdminPage() {
                   {products.map((product) => {
                     const firstImage = product.images?.[0]?.url;
                     const edit = productEdits[product.id];
-                    const tableChildCategories = sortedCategories.filter(
-                      (category) => category.parent_id === (edit?.parent_category_id ?? '')
-                    );
                     return (
                       <tr key={product.id} className="border-b border-stone-100">
                         <td className="px-2 py-3">
@@ -1140,38 +1014,12 @@ export function AdminPage() {
                         <td className="px-2 py-3 text-stone-600">
                           <div className="grid gap-2">
                             <select
-                              value={edit?.parent_category_id ?? ''}
-                              onChange={(e) => {
-                                const nextParentCategoryId = e.target.value;
-                                const selectedRoot = rootCategories.find((category) => category.id === nextParentCategoryId);
-                                const inferredAudience = selectedRoot ? audienceFromCategorySlug(selectedRoot.slug) : null;
-                                onEditProductField(product.id, {
-                                  parent_category_id: nextParentCategoryId,
-                                  category_id: '',
-                                  ...(inferredAudience ? { audience: inferredAudience } : {}),
-                                });
-                              }}
-                              className="w-40 rounded border border-stone-300 px-2 py-1 text-xs"
-                            >
-                              <option value="">{t('admin.noBigCategory')}</option>
-                              {rootCategories.map((category) => (
-                                <option key={category.id} value={category.id}>{category.name}</option>
-                              ))}
-                            </select>
-                            <select
                               value={edit?.category_id ?? ''}
                               onChange={(e) => onEditProductField(product.id, { category_id: e.target.value })}
-                              disabled={!(edit?.parent_category_id) || tableChildCategories.length === 0}
-                              className="w-40 rounded border border-stone-300 px-2 py-1 text-xs disabled:bg-stone-100"
+                              className="w-40 rounded border border-stone-300 px-2 py-1 text-xs"
                             >
-                              <option value="">
-                                {!(edit?.parent_category_id)
-                                  ? t('admin.selectBigFirst')
-                                  : tableChildCategories.length === 0
-                                    ? t('admin.noSubcategories')
-                                    : t('admin.selectSubcategory')}
-                              </option>
-                              {tableChildCategories.map((category) => (
+                              <option value="">No category</option>
+                              {sortedCategories.map((category) => (
                                 <option key={category.id} value={category.id}>{category.name}</option>
                               ))}
                             </select>
