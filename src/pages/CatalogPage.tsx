@@ -11,16 +11,14 @@ function prettyCategoryLabel(category?: string): string {
   if (!category) return 'All Products';
 
   const labels: Record<string, string> = {
-    meshkuj: 'Meshkuj',
-    femra: 'Femra',
-    kepuce: 'Kepuce',
-    aksesoore: 'Aksesoore',
-  };
+        meshkuj: 'Meshkuj',
+        femra: 'Femra',
+      };
 
   return labels[category] ?? category.replace(/-/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
-export function CatalogPage({ category, query }: { category?: string; query?: string }) {
+export function CatalogPage({ category, query, audience }: { category?: string; query?: string; audience?: string }) {
   const [products, setProducts] = useState<ProductWithRelations[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -42,7 +40,11 @@ export function CatalogPage({ category, query }: { category?: string; query?: st
   usePageSeo({
     title: query
       ? `${t('catalog.resultsFor')} "${query}" | Marca`
-      : `${prettyCategoryLabel(category)} | Marca`,
+      : audience === 'men'
+        ? `${t('common.men')} | Marca`
+        : audience === 'women'
+          ? `${t('common.women')} | Marca`
+          : `${prettyCategoryLabel(category)} | Marca`,
     description: query
       ? `${t('catalog.resultsFor')} ${query} in Marca Albania.`
       : `${prettyCategoryLabel(category)} ${language === 'sq' ? 'produkte dhe nenkategori ne Marca Albania.' : 'products and subcategories at Marca Albania.'}`,
@@ -60,10 +62,6 @@ export function CatalogPage({ category, query }: { category?: string; query?: st
     const labels: Record<string, string> = {
       meshkuj: t('common.men'),
       femra: t('common.women'),
-      kepuce: t('common.shoes'),
-      aksesoore: t('common.accessories'),
-      hats: t('common.hats'),
-      't-shirts': t('common.tshirts'),
     };
 
     return labels[value] ?? prettyCategoryLabel(value);
@@ -77,13 +75,26 @@ export function CatalogPage({ category, query }: { category?: string; query?: st
 
   useEffect(() => {
     setPage(1);
-  }, [category, query]);
+  }, [category, query, audience]);
+
+  // Sync audience filter from nav link; include unisex in both Men and Women views
+  useEffect(() => {
+    if (audience === 'men') {
+      setAudiences(['men', 'unisex']);
+    } else if (audience === 'women') {
+      setAudiences(['women', 'unisex']);
+    } else {
+      setAudiences([]);
+    }
+    setPage(1);
+  }, [audience]);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     const filters: CatalogFilters = {
       category,
+      search: query || undefined,
       sort,
       page,
       pageSize,
@@ -104,7 +115,7 @@ export function CatalogPage({ category, query }: { category?: string; query?: st
     return () => {
       active = false;
     };
-  }, [category, query, sort, page, audiences, sizes, colors, brands, maxPrice]);
+  }, [category, query, audience, sort, page, audiences, sizes, colors, brands, maxPrice]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -131,7 +142,7 @@ export function CatalogPage({ category, query }: { category?: string; query?: st
     { value: 'unisex', label: t('common.unisex') },
   ];
 
-  const showAudienceFilter = category !== 'meshkuj' && category !== 'femra';
+  const showAudienceFilter = true; // Always show audience filter so users can filter Men/Women/Unisex within any category
 
   const FilterPanel = (
     <div className="space-y-8">
@@ -247,7 +258,13 @@ export function CatalogPage({ category, query }: { category?: string; query?: st
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
-          {query ? `${t('catalog.resultsFor')} "${query}"` : localizedPrettyCategoryLabel(category)}
+          {query
+            ? `${t('catalog.resultsFor')} "${query}"`
+            : audience === 'men'
+              ? t('common.men')
+              : audience === 'women'
+                ? t('common.women')
+                : localizedPrettyCategoryLabel(category)}
         </h1>
         <p className="mt-1 text-sm text-stone-500">{total} {total === 1 ? t('catalog.item') : t('catalog.items')}</p>
       </div>
