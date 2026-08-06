@@ -13,10 +13,8 @@ export function Header() {
   const { language, setLanguage, t } = useI18n();
 
   const nav = [
-    { label: t('nav.men'), route: { name: 'catalog' as const, category: 'meshkuj' } },
-    { label: t('nav.women'), route: { name: 'catalog' as const, category: 'femra' } },
-    { label: t('nav.shoes'), route: { name: 'catalog' as const, category: 'kepuce' } },
-    { label: t('nav.accessories'), route: { name: 'catalog' as const, category: 'aksesoore' } },
+    { label: t('nav.men'), route: { name: 'catalog' as const, audience: 'men' } },
+    { label: t('nav.women'), route: { name: 'catalog' as const, audience: 'women' } },
   ];
 
   const submitSearch = (e: React.FormEvent) => {
