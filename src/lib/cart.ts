@@ -30,6 +30,15 @@ type CartItemRow = {
   quantity: number;
 };
 
+function isSameCartLine(
+  item: Pick<CartItem, 'productId' | 'size' | 'color'>,
+  productId: string,
+  size: string,
+  color: string
+) {
+  return item.productId === productId && item.size === size && item.color === color;
+}
+
 function loadCart(): CartItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -188,37 +197,38 @@ async function hydrateRemoteCart() {
 }
 
 export function addToCart(item: Omit<CartItem, 'quantity'>, quantity = 1) {
-  const idx = cart.findIndex(
-    (i) =>
-      i.productId === item.productId &&
-      i.size === item.size &&
-      i.color === item.color
-  );
+  const safeQuantity = Math.max(1, Math.floor(quantity));
+  const idx = cart.findIndex((i) => isSameCartLine(i, item.productId, item.size, item.color));
   if (idx >= 0) {
-    cart = cart.map((i, k) => (k === idx ? { ...i, quantity: i.quantity + quantity } : i));
+    cart = cart.map((i, k) => (k === idx ? { ...i, quantity: i.quantity + safeQuantity } : i));
   } else {
-    cart = [...cart, { ...item, quantity }];
+    cart = [...cart, { ...item, quantity: safeQuantity }];
   }
   persist();
 }
 
 export function updateQuantity(productId: string, size: string, color: string, quantity: number) {
-  if (quantity <= 0) {
+  const safeQuantity = Math.floor(quantity);
+  if (safeQuantity <= 0) {
     removeFromCart(productId, size, color);
     return;
   }
   cart = cart.map((i) =>
-    i.productId === productId && i.size === size && i.color === color
-      ? { ...i, quantity }
+    isSameCartLine(i, productId, size, color)
+      ? { ...i, quantity: safeQuantity }
       : i
   );
   persist();
 }
 
+export function getCartLineQuantity(productId: string, size: string, color: string): number {
+  return cart
+    .filter((i) => isSameCartLine(i, productId, size, color))
+    .reduce((sum, i) => sum + i.quantity, 0);
+}
+
 export function removeFromCart(productId: string, size: string, color: string) {
-  cart = cart.filter(
-    (i) => !(i.productId === productId && i.size === size && i.color === color)
-  );
+  cart = cart.filter((i) => !isSameCartLine(i, productId, size, color));
   persist();
 }
 

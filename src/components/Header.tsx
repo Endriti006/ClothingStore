@@ -27,65 +27,68 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
-        <button
-          className="lg:hidden -ml-1 p-1 text-stone-700"
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-label="Menu"
-        >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:gap-4 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3 lg:gap-4">
+          <button
+            className="-ml-1 p-1 text-stone-700 lg:hidden"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Menu"
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
 
-        <div>
-          <Link route={{ name: 'home' }} className="text-xl font-bold tracking-tight text-stone-900">
-            MARCA<span className="text-amber-600">.</span>
-          </Link>
-          <p className="hidden text-[11px] text-stone-400 lg:block">{t('nav.brandTagline')}</p>
-        </div>
-
-        <nav className="hidden lg:flex items-center gap-7 ml-6">
-          {nav.map((item) => (
-            <Link
-              key={item.label}
-              route={item.route}
-              className="text-sm font-medium text-stone-600 hover:text-stone-950 transition-colors"
-            >
-              {item.label}
+          <div>
+            <Link route={{ name: 'home' }} className="text-xl font-bold tracking-tight text-stone-900">
+              MARCA<span className="text-amber-600">.</span>
             </Link>
-          ))}
-        </nav>
-
-        <form onSubmit={submitSearch} className="hidden md:flex flex-1 max-w-xs ml-auto">
-          <div className="relative w-full">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('nav.searchPlaceholder')}
-              className="w-full rounded-full border border-stone-200 bg-stone-50 py-2 pl-9 pr-4 text-sm text-stone-700 placeholder:text-stone-400 focus:border-stone-400 focus:bg-white focus:outline-none transition-colors"
-            />
+            <p className="hidden text-[11px] text-stone-400 lg:block">{t('nav.brandTagline')}</p>
           </div>
-        </form>
 
-        <div className="ml-auto hidden items-center gap-2 md:flex">
-          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-stone-400">{t('nav.language')}</span>
-          <div className="inline-flex rounded-full border border-stone-200 bg-stone-50 p-1">
-            {(['sq', 'en', 'de'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setLanguage(value)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                  language === value ? 'bg-stone-900 text-white' : 'text-stone-500 hover:text-stone-900'
-                }`}
+          <nav className="ml-6 hidden items-center gap-7 lg:flex">
+            {nav.map((item) => (
+              <Link
+                key={item.label}
+                route={item.route}
+                className="text-sm font-medium text-stone-600 transition-colors hover:text-stone-950"
               >
-                {value.toUpperCase()}
-              </button>
+                {item.label}
+              </Link>
             ))}
-          </div>
+          </nav>
         </div>
 
-        <div className="flex items-center gap-1 md:ml-2">
+        <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+          <form onSubmit={submitSearch} className="hidden md:flex md:w-56 lg:w-64">
+            <div className="relative w-full">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('nav.searchPlaceholder')}
+                className="w-full rounded-full border border-stone-200 bg-stone-50 py-2 pl-9 pr-4 text-sm text-stone-700 placeholder:text-stone-400 transition-colors focus:border-stone-400 focus:bg-white focus:outline-none"
+              />
+            </div>
+          </form>
+
+          <div className="hidden items-center gap-2 lg:flex">
+            <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-stone-400">{t('nav.language')}</span>
+            <div className="inline-flex rounded-full border border-stone-200 bg-stone-50 p-1">
+              {(['sq', 'en', 'de'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setLanguage(value)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    language === value ? 'bg-stone-900 text-white' : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  {value.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
           <Link
             route={{ name: 'account' }}
             className="p-2 text-stone-700 hover:text-stone-950 transition-colors"
@@ -105,6 +108,7 @@ export function Header() {
               </span>
             )}
           </Link>
+          </div>
         </div>
       </div>
 

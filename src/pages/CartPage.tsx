@@ -1,7 +1,8 @@
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from '../components/Link';
 import { formatPrice } from '../lib/format';
+import { supabase } from '../lib/supabase';
 import {
   useCart,
   cartSubtotal,
@@ -10,12 +11,95 @@ import {
   clearCart,
 } from '../lib/cart';
 
+function skuKey(productId: string, size: string, color: string) {
+  return `${productId}::${size}::${color}`;
+}
+
+async function createCheckoutSession(items: Array<{ id: string; quantity: number }>) {
+  const response = await fetch('http://localhost:3001/api/checkout/create-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Unable to start checkout');
+  }
+
+  const data = await response.json();
+  return data.url as string;
+}
+
 export function CartPage() {
   const items = useCart();
   const [payOpen, setPayOpen] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [stockBySku, setStockBySku] = useState<Record<string, number>>({});
   const subtotal = cartSubtotal();
   const shipping = subtotal === 0 || subtotal >= 75 ? 0 : 6.99;
   const total = subtotal + shipping;
+
+  useEffect(() => {
+    let active = true;
+
+    if (items.length === 0) {
+      setStockBySku({});
+      return () => {
+        active = false;
+      };
+    }
+
+    const loadStock = async () => {
+      const productIds = Array.from(new Set(items.map((item) => item.productId)));
+      const { data, error: stockError } = await supabase
+        .from('product_skus')
+        .select('product_id, size, color, stock')
+        .in('product_id', productIds);
+
+      if (stockError) {
+        console.error('Unable to load SKU stock for cart', stockError);
+        return;
+      }
+
+      if (!active) return;
+
+      const nextStockBySku: Record<string, number> = {};
+      for (const row of data ?? []) {
+        const rowProductId = String((row as { product_id: unknown }).product_id);
+        const rowSize = String((row as { size: unknown }).size ?? 'One Size');
+        const rowColor = String((row as { color: unknown }).color ?? 'Default');
+        const rowStock = Number((row as { stock: unknown }).stock ?? 0);
+        nextStockBySku[skuKey(rowProductId, rowSize, rowColor)] = Number.isFinite(rowStock)
+          ? Math.max(0, Math.floor(rowStock))
+          : 0;
+      }
+
+      setStockBySku(nextStockBySku);
+    };
+
+    void loadStock();
+
+    return () => {
+      active = false;
+    };
+  }, [items]);
+
+  useEffect(() => {
+    for (const item of items) {
+      const maxStock = stockBySku[skuKey(item.productId, item.size, item.color)];
+      if (typeof maxStock !== 'number') continue;
+
+      if (maxStock <= 0) {
+        removeFromCart(item.productId, item.size, item.color);
+        continue;
+      }
+
+      if (item.quantity > maxStock) {
+        updateQuantity(item.productId, item.size, item.color, maxStock);
+      }
+    }
+  }, [items, stockBySku]);
 
   if (items.length === 0) {
     return (
@@ -49,58 +133,76 @@ export function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <section className="space-y-4">
-          {items.map((item) => (
-            <article
-              key={`${item.productId}-${item.size}-${item.color}`}
-              className="grid grid-cols-[88px_1fr] gap-4 rounded-lg border border-stone-200 p-4 sm:grid-cols-[112px_1fr_auto]"
-            >
-              <Link route={{ name: 'product', slug: item.slug }} className="block overflow-hidden rounded-md bg-stone-100">
-                {item.image ? (
-                  <img src={item.image} alt={item.name} className="h-24 w-full object-cover sm:h-28" />
-                ) : (
-                  <div className="h-24 w-full sm:h-28" />
-                )}
-              </Link>
+          {items.map((item) => {
+            const maxStock = stockBySku[skuKey(item.productId, item.size, item.color)];
+            const hasStockLimit = typeof maxStock === 'number';
+            const atMax = hasStockLimit && item.quantity >= maxStock;
 
-              <div>
-                <Link route={{ name: 'product', slug: item.slug }} className="text-sm font-semibold text-stone-900 hover:text-stone-700">
-                  {item.name}
+            return (
+              <article
+                key={`${item.productId}-${item.size}-${item.color}`}
+                className="grid grid-cols-[88px_1fr] gap-4 rounded-lg border border-stone-200 p-4 sm:grid-cols-[112px_1fr_auto]"
+              >
+                <Link route={{ name: 'product', slug: item.slug }} className="block overflow-hidden rounded-md bg-stone-100">
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} className="h-24 w-full object-cover sm:h-28" />
+                  ) : (
+                    <div className="h-24 w-full sm:h-28" />
+                  )}
                 </Link>
-                <p className="mt-1 text-xs text-stone-500">Size: {item.size} | Color: {item.color}</p>
-                <p className="mt-2 text-sm font-medium text-stone-700">{formatPrice(item.price)}</p>
 
-                <div className="mt-3 inline-flex items-center rounded-md border border-stone-200">
-                  <button
-                    onClick={() => updateQuantity(item.productId, item.size, item.color, item.quantity - 1)}
-                    className="flex h-9 w-9 items-center justify-center text-stone-600 hover:text-stone-900"
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-8 text-center text-sm font-semibold text-stone-900">{item.quantity}</span>
-                  <button
-                    onClick={() => updateQuantity(item.productId, item.size, item.color, item.quantity + 1)}
-                    className="flex h-9 w-9 items-center justify-center text-stone-600 hover:text-stone-900"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus size={14} />
-                  </button>
+                <div>
+                  <Link route={{ name: 'product', slug: item.slug }} className="text-sm font-semibold text-stone-900 hover:text-stone-700">
+                    {item.name}
+                  </Link>
+                  <p className="mt-1 text-xs text-stone-500">Size: {item.size} | Color: {item.color}</p>
+                  <p className="mt-2 text-sm font-medium text-stone-700">{formatPrice(item.price)}</p>
+
+                  <div className="mt-3 inline-flex items-center rounded-md border border-stone-200">
+                    <button
+                      onClick={() => updateQuantity(item.productId, item.size, item.color, item.quantity - 1)}
+                      className="flex h-9 w-9 items-center justify-center text-stone-600 hover:text-stone-900"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="w-8 text-center text-sm font-semibold text-stone-900">{item.quantity}</span>
+                    <button
+                      onClick={() =>
+                        updateQuantity(
+                          item.productId,
+                          item.size,
+                          item.color,
+                          hasStockLimit ? Math.min(item.quantity + 1, maxStock) : item.quantity + 1
+                        )
+                      }
+                      className="flex h-9 w-9 items-center justify-center text-stone-600 hover:text-stone-900"
+                      disabled={atMax}
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+
+                  {atMax && maxStock > 0 && (
+                    <p className="mt-2 text-xs font-medium text-amber-600">Maximum stock reached ({maxStock})</p>
+                  )}
                 </div>
-              </div>
 
-              <div className="flex flex-col items-end justify-between sm:pl-4">
-                <button
-                  onClick={() => removeFromCart(item.productId, item.size, item.color)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-stone-500 hover:text-red-600"
-                >
-                  <Trash2 size={13} /> Remove
-                </button>
-                <p className="text-sm font-semibold text-stone-900">
-                  {formatPrice(item.price * item.quantity)}
-                </p>
-              </div>
-            </article>
-          ))}
+                <div className="flex flex-col items-end justify-between sm:pl-4">
+                  <button
+                    onClick={() => removeFromCart(item.productId, item.size, item.color)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-stone-500 hover:text-red-600"
+                  >
+                    <Trash2 size={13} /> Remove
+                  </button>
+                  <p className="text-sm font-semibold text-stone-900">
+                    {formatPrice(item.price * item.quantity)}
+                  </p>
+                </div>
+              </article>
+            );
+          })}
         </section>
 
         <aside className="h-fit rounded-xl border border-stone-200 p-5 lg:sticky lg:top-24">
@@ -168,21 +270,38 @@ export function CartPage() {
               </div>
             </div>
 
+            {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+
             <div className="mt-5 flex gap-3">
               <button
-                onClick={() => setPayOpen(false)}
+                onClick={() => {
+                  setPayOpen(false);
+                  setError(null);
+                }}
                 className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-stone-300 text-sm font-medium text-stone-700"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setPayOpen(false);
-                  window.alert('Payment flow confirmed. Integrate provider in next step.');
+                onClick={async () => {
+                  try {
+                    setCheckingOut(true);
+                    setError(null);
+                    const url = await createCheckoutSession(items.map((item) => ({
+                      id: item.productId,
+                      quantity: item.quantity,
+                    })));
+                    window.location.href = url;
+                  } catch (checkoutError) {
+                    setError(checkoutError instanceof Error ? checkoutError.message : 'Unable to start checkout');
+                  } finally {
+                    setCheckingOut(false);
+                  }
                 }}
-                className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800"
+                disabled={checkingOut}
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Pay now
+                {checkingOut ? 'Redirecting…' : 'Pay now'}
               </button>
             </div>
           </div>
