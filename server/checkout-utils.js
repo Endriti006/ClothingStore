@@ -19,6 +19,28 @@ export async function getProductsByIds(productIds) {
   return data ?? [];
 }
 
+export function validateShippingInfo(shippingInfo) {
+  const requiredFields = ['name', 'phone', 'address', 'city', 'postalCode'];
+  const errors = [];
+
+  for (const field of requiredFields) {
+    const value = shippingInfo?.[field];
+    if (typeof value !== 'string' || value.trim() === '') {
+      errors.push(field);
+    }
+  }
+
+  const phone = shippingInfo?.phone?.trim() || '';
+  if (phone && !/^\+?[0-9\s()-]{7,15}$/.test(phone)) {
+    errors.push('phoneFormat');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
 export function buildStripeLineItems(cartItems, products) {
   return cartItems.map((item) => {
     const product = products.find((entry) => entry.id === item.id);

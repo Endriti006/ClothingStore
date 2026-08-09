@@ -15,17 +15,28 @@ export function CheckoutPage() {
 
   if (status === 'success') {
     const sessionId = getQueryValue('session_id');
+    const orderId = getQueryValue('order_id');
+    const paymentType = getQueryValue('payment_type') === 'cod' ? 'cod' : 'card';
 
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Payment successful</p>
-          <h1 className="mt-3 text-3xl font-bold text-stone-900">Thanks for your order</h1>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
+            {paymentType === 'cod' ? 'Pending — pay on delivery' : 'Payment successful'}
+          </p>
+          <h1 className="mt-3 text-3xl font-bold text-stone-900">
+            {paymentType === 'cod' ? 'Thanks for your order' : 'Thanks for your order'}
+          </h1>
           <p className="mt-3 text-sm text-stone-600">
-            Your payment is confirmed. We’ll email you a receipt shortly.
+            {paymentType === 'cod'
+              ? 'Your order is confirmed and will be paid in cash when it arrives.'
+              : 'Your payment is confirmed. We’ll email you a receipt shortly.'}
           </p>
           {sessionId && (
             <p className="mt-4 text-sm text-stone-500">Session ID: {sessionId}</p>
+          )}
+          {orderId && (
+            <p className="mt-2 text-sm text-stone-500">Order ID: {orderId}</p>
           )}
           <Link
             route={{ name: 'catalog' }}

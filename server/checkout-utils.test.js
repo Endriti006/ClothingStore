@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStripeLineItems } from './checkout-utils.js';
+import { buildStripeLineItems, validateShippingInfo } from './checkout-utils.js';
 
 test('buildStripeLineItems uses server-side product prices', () => {
   const items = [
@@ -39,4 +39,20 @@ test('buildStripeLineItems uses server-side product prices', () => {
       quantity: 1,
     },
   ]);
+});
+
+test('validateShippingInfo requires the core shipping fields', () => {
+  const result = validateShippingInfo({
+    name: 'Ada Lovelace',
+    phone: '5551234',
+    address: '123 Main St',
+    city: 'New York',
+    postalCode: '',
+    notes: '',
+  });
+
+  assert.deepEqual(result, {
+    valid: false,
+    errors: ['postalCode'],
+  });
 });
