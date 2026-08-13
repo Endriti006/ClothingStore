@@ -1,8 +1,5 @@
 const ADMIN_SESSION_KEY = 'bolt_store_admin_session';
 
-const DEFAULT_ADMIN_EMAIL = 'admin@marca.local';
-const DEFAULT_ADMIN_PASSWORD = 'admin123';
-
 export type AdminLoginInput = {
   email: string;
   password: string;
@@ -14,10 +11,14 @@ export type AdminSession = {
 };
 
 function getConfig() {
-  const email = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined) || DEFAULT_ADMIN_EMAIL;
-  const password =
-    (import.meta.env.VITE_ADMIN_PASSWORD as string | undefined) || DEFAULT_ADMIN_PASSWORD;
-  return { email: email.toLowerCase().trim(), password };
+  const email = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
+  const password = import.meta.env.VITE_ADMIN_PASSWORD as string | undefined;
+
+  if (email && password) {
+    return { email: email.toLowerCase().trim(), password };
+  }
+
+  return null;
 }
 
 export function getAdminSession(): AdminSession | null {
@@ -38,6 +39,10 @@ export function isAdminAuthenticated(): boolean {
 
 export function loginAdmin(input: AdminLoginInput): { ok: true } | { ok: false; message: string } {
   const config = getConfig();
+  if (!config) {
+    return { ok: false, message: 'Admin login is not configured.' };
+  }
+
   const email = input.email.trim().toLowerCase();
   const password = input.password;
 
@@ -55,8 +60,4 @@ export function loginAdmin(input: AdminLoginInput): { ok: true } | { ok: false; 
 
 export function logoutAdmin() {
   localStorage.removeItem(ADMIN_SESSION_KEY);
-}
-
-export function getAdminHintEmail(): string {
-  return getConfig().email;
 }
