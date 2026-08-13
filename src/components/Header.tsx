@@ -1,6 +1,6 @@
 import { ShoppingBag, Search, User, Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate } from '../lib/router';
+import { useEffect, useState } from 'react';
+import { useNavigate, useRoute } from '../lib/router';
 import { Link } from '../components/Link';
 import { useCartCount as useCartCountCart } from '../lib/cart';
 import { useI18n } from '../lib/i18n';
@@ -10,7 +10,16 @@ export function Header() {
   const [query, setQuery] = useState('');
   const count = useCartCountCart();
   const navigate = useNavigate();
+  const route = useRoute();
   const { language, setLanguage, t } = useI18n();
+
+  useEffect(() => {
+    if (route.name === 'catalog' && route.query) {
+      setQuery(route.query);
+      return;
+    }
+    setQuery('');
+  }, [route]);
 
   const nav = [
     { label: t('nav.men'), route: { name: 'catalog' as const, audience: 'men' } },
@@ -153,13 +162,6 @@ export function Header() {
                 {item.label}
               </Link>
             ))}
-            <Link
-              route={{ name: 'admin' }}
-              onClick={() => setMobileOpen(false)}
-              className="rounded-md px-3 py-2.5 text-base font-medium text-stone-500 hover:bg-stone-100"
-            >
-              {t('nav.admin')}
-            </Link>
           </nav>
         </div>
       )}
