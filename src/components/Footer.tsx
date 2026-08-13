@@ -1,19 +1,15 @@
 import { useState } from 'react';
-import { Instagram, Facebook, Twitter, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { Link } from '../components/Link';
 import { useI18n } from '../lib/i18n';
 
 export function Footer() {
   const [email, setEmail] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
   const { t } = useI18n();
 
   const subscribe = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    setSubscribed(true);
-    setEmail('');
-    setTimeout(() => setSubscribed(false), 4000);
+    setEmail(email.trim());
   };
 
   return (
@@ -27,18 +23,6 @@ export function Footer() {
             <p className="mt-3 text-sm leading-relaxed text-stone-500">
               {t('footer.description')}
             </p>
-            <div className="mt-5 flex gap-3">
-              {[Instagram, Facebook, Twitter].map((Icon, i) => (
-                <a
-                  key={i}
-                  href="#"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 text-stone-500 transition-colors hover:border-stone-900 hover:text-stone-900"
-                  aria-label="Social"
-                >
-                  <Icon size={16} />
-                </a>
-              ))}
-            </div>
           </div>
 
           <div>
@@ -52,10 +36,10 @@ export function Footer() {
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-900">{t('footer.help')}</h4>
             <ul className="mt-4 space-y-2.5 text-sm text-stone-500">
-              <li><a href="#" className="hover:text-stone-900">{t('footer.shipping')}</a></li>
-                            <li><Link route={{ name: 'info', slug: 'size-guide' }} className="hover:text-stone-900">{t('footer.guide')}</Link></li>
-                            <li><a href="#" className="hover:text-stone-900">{t('footer.track')}</a></li>
-                            <li><a href="#" className="hover:text-stone-900">{t('footer.contact')}</a></li>
+              <li><Link route={{ name: 'info', slug: 'shipping' }} className="hover:text-stone-900">{t('footer.shipping')}</Link></li>
+              <li><Link route={{ name: 'info', slug: 'size-guide' }} className="hover:text-stone-900">{t('footer.guide')}</Link></li>
+              <li><Link route={{ name: 'info', slug: 'track-order' }} className="hover:text-stone-900">{t('footer.track')}</Link></li>
+              <li><Link route={{ name: 'info', slug: 'contact' }} className="hover:text-stone-900">{t('footer.contact')}</Link></li>
             </ul>
           </div>
 
@@ -78,16 +62,13 @@ export function Footer() {
                 </div>
                 <button
                   type="submit"
+                  disabled
                   className="rounded-r-md bg-stone-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-stone-800"
                 >
                   {t('footer.join')}
                 </button>
               </div>
-              {subscribed && (
-                <p className="mt-2 text-xs font-medium text-emerald-600">
-                  {t('footer.subscribed')}
-                </p>
-              )}
+              <p className="mt-2 text-xs font-medium text-stone-500">{t('footer.newsletterComingSoon')}</p>
             </form>
           </div>
         </div>
@@ -95,9 +76,8 @@ export function Footer() {
         <div className="flex flex-col items-center justify-between gap-3 border-t border-stone-200 py-6 sm:flex-row">
           <p className="text-xs text-stone-400">© 2026 Marca. {t('footer.rights')}</p>
           <div className="flex gap-5 text-xs text-stone-400">
-            <a href="#" className="hover:text-stone-700">{t('footer.privacy')}</a>
-            <a href="#" className="hover:text-stone-700">{t('footer.terms')}</a>
-            <Link route={{ name: 'admin' }} className="hover:text-stone-700">{t('footer.admin')}</Link>
+            <Link route={{ name: 'info', slug: 'privacy' }} className="hover:text-stone-700">{t('footer.privacy')}</Link>
+            <Link route={{ name: 'info', slug: 'terms' }} className="hover:text-stone-700">{t('footer.terms')}</Link>
           </div>
         </div>
       </div>
