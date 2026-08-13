@@ -9,7 +9,10 @@ import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
+import { AdminLoginPage } from './pages/AdminLoginPage';
 import { SizeGuidePage } from './pages/SizeGuidePage';
+import { InfoPage } from './pages/InfoPage';
+import { Link } from './components/Link';
 import { useI18n } from './lib/i18n';
 import { usePageSeo } from './lib/seo';
 
@@ -53,22 +56,35 @@ function App() {
     case 'account':
       page = <AccountPage />;
       break;
+    case 'admin-login':
+      isAdmin = true;
+      page = <AdminLoginPage />;
+      break;
     case 'admin':
-          isAdmin = true;
-          page = <AdminPage />;
+      isAdmin = true;
+      page = <AdminPage />;
+      break;
+    case 'info':
+      switch (route.slug) {
+        case 'size-guide':
+          page = <SizeGuidePage />;
           break;
-        case 'info':
-          switch (route.slug) {
-            case 'size-guide':
-              page = <SizeGuidePage />;
-              break;
-            default:
-              page = <NotFound />;
-          }
+        case 'shipping':
+        case 'returns':
+        case 'privacy':
+        case 'terms':
+        case 'contact':
+        case 'track-order':
+        case 'faq':
+          page = <InfoPage slug={route.slug} />;
           break;
         default:
           page = <NotFound />;
       }
+      break;
+    default:
+      page = <NotFound />;
+  }
 
   if (isAdmin) {
     return <>{page}</>;
@@ -86,10 +102,21 @@ function App() {
 function NotFound() {
   const { t } = useI18n();
 
+  usePageSeo({
+    title: 'Page Not Found | Marca',
+    robots: 'noindex',
+  });
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col items-center justify-center px-4 py-32 text-center">
       <h1 className="text-3xl font-bold text-stone-900">{t('common.pageNotFound')}</h1>
       <p className="mt-2 text-sm text-stone-500">{t('common.pageNotFoundLead')}</p>
+      <Link
+        route={{ name: 'home' }}
+        className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-stone-900 px-6 text-sm font-semibold text-white hover:bg-stone-800"
+      >
+        {t('common.backToHome')}
+      </Link>
     </div>
   );
 }
