@@ -36,7 +36,7 @@ const defaultShippingInfo: ShippingInfo = {
 };
 
 async function createCheckoutSession(
-  items: Array<{ id: string; quantity: number }>,
+  items: Array<{ id: string; quantity: number; size: string; color: string }>,
   shippingInfo: ShippingInfo
 ) {
   const response = await fetch('http://localhost:3001/api/checkout/create-session', {
@@ -53,7 +53,10 @@ async function createCheckoutSession(
   return data.url as string;
 }
 
-async function createCodOrder(items: Array<{ id: string; quantity: number }>, shippingInfo: ShippingInfo) {
+async function createCodOrder(
+  items: Array<{ id: string; quantity: number; size: string; color: string }>,
+  shippingInfo: ShippingInfo
+) {
   const response = await fetch('http://localhost:3001/api/orders/cod', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -194,6 +197,8 @@ export function CartPage() {
       const payloadItems = items.map((item) => ({
         id: item.productId,
         quantity: item.quantity,
+        size: item.size,
+        color: item.color,
       }));
 
       if (paymentMethod === 'card') {

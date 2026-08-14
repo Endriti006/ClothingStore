@@ -53,6 +53,39 @@ export type Review = {
   created_at: string;
 };
 
+export type OrderShippingInfo = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+};
+
+export type OrderLineItem = {
+  product_id?: string;
+  name?: string;
+  slug?: string;
+  size?: string;
+  color?: string;
+  quantity?: number;
+  unit_price?: number;
+  line_total?: number;
+};
+
+export type Order = {
+  id: string;
+  created_at: string;
+  session_id: string | null;
+  status: string;
+  payment_method: string | null;
+  payment_type: string | null;
+  total_amount: number;
+  currency: string;
+  shipping_info: OrderShippingInfo;
+  line_items: OrderLineItem[];
+};
+
 export type ProductWithRelations = Product & {
   images: ProductImage[];
   skus: ProductSku[];

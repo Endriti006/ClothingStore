@@ -8,6 +8,20 @@ export default defineConfig({
     host: '::',
     port: 5174,
     strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['lucide-react'],

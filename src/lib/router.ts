@@ -17,6 +17,7 @@ export type Route =
   | { name: 'cart' }
   | { name: 'checkout' }
   | { name: 'account' }
+  | { name: 'admin-login' }
   | { name: 'admin' }
   | { name: 'info'; slug: InfoPageSlug }
   | { name: 'not-found' };
@@ -40,6 +41,7 @@ function parseHash(): Route {
   if (parts[0] === 'cart') return { name: 'cart' };
   if (parts[0] === 'checkout') return { name: 'checkout' };
   if (parts[0] === 'account') return { name: 'account' };
+  if (parts[0] === 'admin' && parts[1] === 'login') return { name: 'admin-login' };
   if (parts[0] === 'admin') return { name: 'admin' };
   if (parts[0] === 'info' && parts[1]) {
     const slug = parts[1] as InfoPageSlug;
@@ -70,6 +72,8 @@ export function buildHash(route: Route): string {
       return '#/checkout';
     case 'account':
       return '#/account';
+    case 'admin-login':
+      return '#/admin/login';
     case 'admin':
       return '#/admin';
     case 'info':

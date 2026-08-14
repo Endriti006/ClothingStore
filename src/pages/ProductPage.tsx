@@ -6,6 +6,7 @@ import { RatingStars } from '../components/RatingStars';
 import { ImageLightbox } from '../components/ImageLightbox';
 import { fetchProductBySlug, fetchRelatedProducts } from '../lib/catalog';
 import { useAddToCart, useCart, useCartCount } from '../lib/cart';
+import { useI18n } from '../lib/i18n';
 import { usePageSeo } from '../lib/seo';
 import { useNavigate } from '../lib/router';
 import { formatPrice, discountPercent } from '../lib/format';
@@ -29,6 +30,7 @@ export function ProductPage({ slug }: { slug: string }) {
   const navigate = useNavigate();
   const cartItems = useCart();
   const cartCount = useCartCount();
+  const { t } = useI18n();
 
   usePageSeo({
     title: product ? `${product.name} | Marca` : 'Product | Marca',
@@ -366,7 +368,7 @@ export function ProductPage({ slug }: { slug: string }) {
                   onClick={() => setSizeGuideOpen(true)}
                   className="inline-flex items-center gap-1 text-xs font-medium text-stone-500 hover:text-stone-900"
                 >
-                  <Ruler size={13} /> Size guide
+                  <Ruler size={13} /> {t('product.sizeGuide')}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -481,9 +483,9 @@ export function ProductPage({ slug }: { slug: string }) {
           {/* Perks */}
           <div className="mt-8 grid grid-cols-3 gap-3 border-t border-stone-100 pt-6">
             {[
-              { icon: Truck, label: 'Free shipping over $75' },
-              { icon: RefreshCw, label: '30-day returns' },
-              { icon: ShieldCheck, label: 'Secure checkout' },
+              { icon: Truck, label: t('product.badges.shipping') },
+              { icon: RefreshCw, label: t('product.badges.returns') },
+              { icon: ShieldCheck, label: t('product.badges.checkout') },
             ].map((p) => (
               <div key={p.label} className="flex flex-col items-center gap-1.5 text-center">
                 <p.icon size={20} className="text-stone-500" />
@@ -553,7 +555,7 @@ export function ProductPage({ slug }: { slug: string }) {
           <div className="absolute inset-0 bg-stone-900/50" onClick={() => setSizeGuideOpen(false)} />
           <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-stone-900">Size Guide</h3>
+              <h3 className="text-lg font-semibold text-stone-900">{t('product.sizeGuide')}</h3>
               <button onClick={() => setSizeGuideOpen(false)} className="text-stone-400 hover:text-stone-700" aria-label="Close">
                 ✕
               </button>
@@ -582,7 +584,7 @@ export function ProductPage({ slug }: { slug: string }) {
                 ))}
               </tbody>
             </table>
-            <p className="mt-4 text-xs text-stone-400">Measurements are approximate. For shoes, EU sizes are standard.</p>
+            <p className="mt-4 text-xs text-stone-400">{t('product.sizeGuideNote')}</p>
           </div>
         </div>
       )}

@@ -13,11 +13,12 @@ import {
   type AdminProductListItem,
 } from '../lib/catalog';
 import { getAdminSession, isAdminAuthenticated, logoutAdmin } from '../lib/adminAuth';
-import { useI18n } from '../lib/i18n';
+import { fetchAdminOrders } from '../lib/orders';
+import { resolveTranslation } from '../lib/i18n';
 import { usePageSeo } from '../lib/seo';
 import { useNavigate } from '../lib/router';
 import { formatPrice } from '../lib/format';
-import type { Category, Product, ProductAudience } from '../types';
+import type { Category, Order, Product, ProductAudience } from '../types';
 
 type VariantDraft = {
   id: string;
@@ -74,7 +75,7 @@ function renderSubmitError(error: unknown): string {
   return combined;
 }
 
-function buildProductEdits(rows: AdminProductListItem[], _categories: Category[]): Record<string, ProductEditDraft> {
+function buildProductEdits(rows: AdminProductListItem[]): Record<string, ProductEditDraft> {
   const entries = rows.map((row) => [
     row.id,
     {
@@ -93,12 +94,14 @@ function buildProductEdits(rows: AdminProductListItem[], _categories: Category[]
 
 export function AdminPage() {
   const navigate = useNavigate();
-  const { t, language } = useI18n();
+  const t = (key: string, fallback?: string) => resolveTranslation('en', key) ?? fallback ?? key;
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<AdminProductListItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [name, setName] = useState('');
@@ -135,11 +138,15 @@ export function AdminPage() {
   const isAuthenticated = isAdminAuthenticated();
   const adminSession = getAdminSession();
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate({ name: 'admin-login' });
+    }
+  }, [isAuthenticated, navigate]);
+
   usePageSeo({
-    title: language === 'sq' ? 'Paneli Admin | Marca' : 'Admin Dashboard | Marca',
-    description: language === 'sq'
-      ? 'Panel administrimi per menaxhimin e produkteve, kategorive dhe publikimit.'
-      : 'Admin management panel for products, categories, and publishing.',
+    title: 'Admin Dashboard | Marca',
+    description: 'Admin management panel for products, categories, and publishing.',
     robots: 'noindex,nofollow',
   });
 
@@ -183,22 +190,26 @@ export function AdminPage() {
   const stats = [
     { label: t('admin.products'), value: String(products.length) },
     { label: t('admin.categories'), value: String(categories.length) },
+    { label: 'Orders', value: String(orders.length) },
   ];
 
   const loadAdminData = async () => {
     setRefreshing(true);
     try {
-      const [categoryRows, productRows] = await Promise.all([
+      const [categoryRows, productRows, orderRows] = await Promise.all([
         fetchCategories(),
         fetchAdminProducts(),
+        fetchAdminOrders(),
       ]);
       setCategories(categoryRows);
       setProducts(productRows);
-      setProductEdits(buildProductEdits(productRows, categoryRows));
+      setOrders(orderRows);
+      setProductEdits(buildProductEdits(productRows));
     } finally {
       setRefreshing(false);
       setLoadingCategories(false);
       setLoadingProducts(false);
+      setLoadingOrders(false);
     }
   };
 
@@ -314,7 +325,7 @@ export function AdminPage() {
       resetProductForm();
       const latestProducts = await fetchAdminProducts();
       setProducts(latestProducts);
-      setProductEdits(buildProductEdits(latestProducts, categories));
+      setProductEdits(buildProductEdits(latestProducts));
     } catch (submitError) {
       setError(renderSubmitError(submitError));
     } finally {
@@ -346,7 +357,7 @@ export function AdminPage() {
       resetCategoryForm();
       const latestCategories = await fetchCategories();
       setCategories(latestCategories);
-      setProductEdits(buildProductEdits(products, latestCategories));
+      setProductEdits(buildProductEdits(products));
     } catch (submitError) {
       setCategoryError(renderSubmitError(submitError));
     } finally {
@@ -383,7 +394,7 @@ export function AdminPage() {
       ]);
       setCategories(latestCategories);
       setProducts(latestProducts);
-      setProductEdits(buildProductEdits(latestProducts, latestCategories));
+      setProductEdits(buildProductEdits(latestProducts));
       setCategorySuccess(`Deleted category: ${category.name}`);
       setCategoryError(null);
     } catch (deleteError) {
@@ -429,7 +440,7 @@ export function AdminPage() {
 
       const latestProducts = await fetchAdminProducts();
       setProducts(latestProducts);
-      setProductEdits(buildProductEdits(latestProducts, categories));
+      setProductEdits(buildProductEdits(latestProducts));
       setSuccess('Product updated successfully.');
       setError(null);
     } catch (updateError) {
@@ -488,7 +499,7 @@ export function AdminPage() {
 
       const latestCategories = await fetchCategories();
       setCategories(latestCategories);
-      setProductEdits(buildProductEdits(products, latestCategories));
+      setProductEdits(buildProductEdits(products));
       setCategorySuccess(
         createdCount === 0
           ? 'Default category tree already exists.'
@@ -503,22 +514,7 @@ export function AdminPage() {
   };
 
   if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-100 p-4">
-        <div className="w-full max-w-md rounded-xl border border-stone-200 bg-white p-6 text-center">
-          <h1 className="text-xl font-bold text-stone-900">Admin Access Required</h1>
-          <p className="mt-2 text-sm text-stone-500">
-            Please login from your account page to manage products.
-          </p>
-          <Link
-            route={{ name: 'account' }}
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-stone-900 px-4 text-sm font-semibold text-white hover:bg-stone-800"
-          >
-            Go to Admin Login
-          </Link>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -538,7 +534,7 @@ export function AdminPage() {
                   type="button"
                   onClick={() => {
                     logoutAdmin();
-                    navigate({ name: 'account' });
+                    navigate({ name: 'admin-login' });
                   }}
                   className="text-sm font-medium text-stone-500 hover:text-stone-900"
                 >
@@ -1091,6 +1087,79 @@ export function AdminPage() {
                               {deletingProductId === product.id ? t('admin.deleting') : t('admin.delete')}
                             </button>
                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-stone-200/80 bg-white/95 p-6 shadow-[0_20px_60px_-35px_rgba(28,25,23,0.25)]">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-stone-900">Orders</h2>
+              <p className="mt-1 text-sm text-stone-500">Customer checkout and delivery details.</p>
+            </div>
+            <p className="text-sm text-stone-500">{orders.length} total</p>
+          </div>
+
+          {loadingOrders ? (
+            <p className="text-sm text-stone-500">Loading orders...</p>
+          ) : orders.length === 0 ? (
+            <p className="text-sm text-stone-500">No orders have been placed yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
+                    <th className="px-2 py-2 font-medium">Order</th>
+                    <th className="px-2 py-2 font-medium">Customer & delivery</th>
+                    <th className="px-2 py-2 font-medium">Items</th>
+                    <th className="px-2 py-2 font-medium">Payment</th>
+                    <th className="px-2 py-2 font-medium text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => {
+                    const shipping = order.shipping_info ?? {};
+                    return (
+                      <tr key={order.id} className="border-b border-stone-100 align-top">
+                        <td className="px-2 py-3 text-stone-600">
+                          <p className="font-medium text-stone-900">#{order.id.slice(0, 8)}</p>
+                          <p className="mt-1 text-xs">{new Date(order.created_at).toLocaleString()}</p>
+                          <p className="mt-1 text-xs font-medium uppercase text-amber-700">{order.status.replace(/_/g, ' ')}</p>
+                          <p className="mt-1 break-all text-[11px] text-stone-400">{order.id}</p>
+                        </td>
+                        <td className="px-2 py-3 text-stone-600">
+                          <p className="font-medium text-stone-900">{shipping.name || 'No name provided'}</p>
+                          {shipping.email && <p className="mt-1">{shipping.email}</p>}
+                          {shipping.phone && <p className="mt-1">{shipping.phone}</p>}
+                          <p className="mt-1 max-w-xs whitespace-pre-line text-xs">
+                            {[shipping.address, shipping.city, shipping.postalCode].filter(Boolean).join(', ') || 'No delivery address provided'}
+                          </p>
+                        </td>
+                        <td className="px-2 py-3 text-stone-600">
+                          <ul className="min-w-48 space-y-2">
+                            {order.line_items.map((item, index) => (
+                              <li key={`${order.id}-${item.product_id ?? item.name ?? index}`}>
+                                <p className="font-medium text-stone-900">{item.name || 'Unnamed product'} x{item.quantity ?? 1}</p>
+                                <p className="text-xs text-stone-500">
+                                  {[item.size, item.color].filter(Boolean).join(' / ') || 'Default variant'}
+                                  {item.unit_price != null ? ` - ${formatPrice(Number(item.unit_price))} each` : ''}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                        <td className="px-2 py-3 text-stone-600">
+                          <p className="capitalize">{order.payment_method || order.payment_type || 'Unknown'}</p>
+                          {order.session_id && <p className="mt-1 max-w-36 break-all text-[11px] text-stone-400">{order.session_id}</p>}
+                        </td>
+                        <td className="px-2 py-3 text-right font-semibold text-stone-900">
+                          {formatPrice(Number(order.total_amount))}
                         </td>
                       </tr>
                     );

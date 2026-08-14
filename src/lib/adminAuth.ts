@@ -1,4 +1,6 @@
 const ADMIN_SESSION_KEY = 'bolt_store_admin_session';
+const FALLBACK_ADMIN_EMAIL = 'admin@marca.local';
+const FALLBACK_ADMIN_PASSWORD = 'admin123';
 
 export type AdminLoginInput = {
   email: string;
@@ -11,11 +13,18 @@ export type AdminSession = {
 };
 
 function getConfig() {
-  const email = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
-  const password = import.meta.env.VITE_ADMIN_PASSWORD as string | undefined;
+  const email = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim();
+  const password = (import.meta.env.VITE_ADMIN_PASSWORD as string | undefined)?.trim();
 
   if (email && password) {
-    return { email: email.toLowerCase().trim(), password };
+    return { email: email.toLowerCase(), password };
+  }
+
+  if (import.meta.env.DEV) {
+    return {
+      email: FALLBACK_ADMIN_EMAIL,
+      password: FALLBACK_ADMIN_PASSWORD,
+    };
   }
 
   return null;

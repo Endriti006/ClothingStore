@@ -104,6 +104,7 @@ function NotFound() {
 
   usePageSeo({
     title: 'Page Not Found | Marca',
+    description: 'The page you requested could not be found.',
     robots: 'noindex',
   });
 

@@ -37,7 +37,17 @@ export function HomePage() {
     .slice(0, 6);
 
   const categoryLabel = (category: Category) => {
-    const key = category.slug.replace(/-/g, '');
+    const slugToKey: Record<string, string> = {
+      meshkuj: 'men',
+      femra: 'women',
+      kepuce: 'shoes',
+      aksesoore: 'accessories',
+      hats: 'hats',
+      unisex: 'unisex',
+      tshirts: 'tshirts',
+    };
+    const normalized = category.slug.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const key = slugToKey[normalized] ?? normalized;
     const translated = t(`common.${key}`);
     return translated === `common.${key}` ? category.name : translated;
   };
@@ -125,7 +135,7 @@ export function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-stone-900">Shop by category</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-stone-900">{t('home.shopByCategory')}</h2>
             <p className="mt-1 text-sm text-stone-500">{t('home.categoryLead')}</p>
           </div>
         </div>
