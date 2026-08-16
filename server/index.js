@@ -1,6 +1,9 @@
+import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -18,6 +21,9 @@ dotenv.config({ path: '.env' });
 const app = express();
 const port = Number(process.env.PORT || 3001);
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+const allowedOrigins = Array.from(
+  new Set([frontendUrl, 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'])
+).filter(Boolean);
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -25,7 +31,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 });
 const supabase = createClient(
   supabaseUrl,
-  supabaseServiceRoleKey || process.env.VITE_SUPABASE_ANON_KEY || ''
+  supabaseServiceRoleKey
 );
 
 function assertAdminDbAccess() {
@@ -150,19 +156,69 @@ async function persistOrderAndUpdateInventory(orderPayload, cartItems) {
   return data;
 }
 
+app.disable('x-powered-by');
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
 app.use(
   cors({
-    origin: frontendUrl,
-    methods: ['GET', 'POST'],
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('CORS origin not allowed'));
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   })
 );
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
 
-app.post('/api/checkout/create-session', express.json(), async (req, res) => {
+  if (process.env.NODE_ENV === 'production' && !req.secure && req.get('x-forwarded-proto') !== 'https') {
+    return res.status(403).json({ error: 'HTTPS is required in production.' });
+  }
+
+  next();
+});
+
+const checkoutRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many checkout attempts. Please wait a few minutes and try again.' },
+});
+
+app.use('/api/checkout', checkoutRateLimiter);
+app.use('/api/orders', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many order requests. Please wait a few minutes and try again.' },
+}));
+app.use(express.json({ limit: '1mb' }));
+
+app.post('/api/checkout/create-session', async (req, res) => {
   try {
     const cartItems = normalizeCartItems(req.body?.items);
-    const shippingInfo = req.body?.shippingInfo || {};
-    const validation = validateShippingInfo(shippingInfo);
+    const rawShippingInfo = req.body?.shippingInfo || {};
+    const validation = validateShippingInfo(rawShippingInfo);
 
     if (!cartItems.length) {
       return res.status(400).json({ error: 'Cart is empty' });
@@ -172,39 +228,44 @@ app.post('/api/checkout/create-session', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Please fill in your shipping details', errors: validation.errors });
     }
 
+    const shippingInfo = validation.normalized;
     const productIds = cartItems.map((item) => item.id);
     const products = await getProductsByIds(productIds);
     ensureProductsPurchasable(cartItems, products);
-    const lineItems = buildStripeLineItems(
-      cartItems,
-      products
-    );
+    const lineItems = buildStripeLineItems(cartItems, products);
+    const requestHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify({ items: cartItems, shippingInfo }))
+      .digest('hex');
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: lineItems,
-      success_url: `${frontendUrl}/#/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_type=card`,
-      cancel_url: `${frontendUrl}/#/checkout/cancel`,
-      metadata: {
-        cart_items: JSON.stringify(cartItems),
-        shipping_info: JSON.stringify(shippingInfo),
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: lineItems,
+        success_url: `${frontendUrl}/#/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_type=card`,
+        cancel_url: `${frontendUrl}/#/checkout/cancel`,
+        metadata: {
+          cart_items: JSON.stringify(cartItems),
+          shipping_info: JSON.stringify(shippingInfo),
+        },
       },
-    });
+      { idempotencyKey: `checkout:${requestHash}` }
+    );
 
     return res.json({ url: session.url });
   } catch (error) {
-    console.error('Checkout session creation failed', error);
+    console.error('Checkout session creation failed');
     const message = error instanceof Error ? error.message : 'Unable to create checkout session';
     return res.status(500).json({ error: message });
   }
 });
 
-app.post('/api/orders/cod', express.json(), async (req, res) => {
+app.post('/api/orders/cod', async (req, res) => {
   try {
     const cartItems = normalizeCartItems(req.body?.items);
-    const shippingInfo = req.body?.shippingInfo || {};
-    const validation = validateShippingInfo(shippingInfo);
+    const rawShippingInfo = req.body?.shippingInfo || {};
+    const validation = validateShippingInfo(rawShippingInfo);
 
     if (!cartItems.length) {
       return res.status(400).json({ error: 'Cart is empty' });
@@ -214,6 +275,7 @@ app.post('/api/orders/cod', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Please fill in your shipping details', errors: validation.errors });
     }
 
+    const shippingInfo = validation.normalized;
     const productIds = cartItems.map((item) => item.id);
     const products = await getProductsByIds(productIds);
     ensureProductsPurchasable(cartItems, products);
