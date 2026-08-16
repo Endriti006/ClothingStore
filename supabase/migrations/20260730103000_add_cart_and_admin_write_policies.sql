@@ -47,36 +47,105 @@ FOR EACH ROW EXECUTE FUNCTION public.set_carts_updated_at();
 ALTER TABLE carts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cart_items ENABLE ROW LEVEL SECURITY;
 
--- Public read/write for demo storefront/admin tooling.
--- Tighten these in production with auth-based policies.
-DROP POLICY IF EXISTS "public_read_carts" ON carts;
-CREATE POLICY "public_read_carts" ON carts FOR SELECT
-  TO anon, authenticated USING (true);
+-- Restrict cart data to the requesting browser session.
+CREATE OR REPLACE FUNCTION public.current_session_header()
+RETURNS text
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT COALESCE(current_setting('request.headers', true)::json->>'x-session-id', '');
+$$;
 
-DROP POLICY IF EXISTS "public_write_carts" ON carts;
-CREATE POLICY "public_write_carts" ON carts FOR ALL
-  TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "session_read_carts" ON carts;
+CREATE POLICY "session_read_carts" ON carts FOR SELECT
+  TO anon, authenticated
+  USING (session_id = public.current_session_header());
 
-DROP POLICY IF EXISTS "public_read_cart_items" ON cart_items;
-CREATE POLICY "public_read_cart_items" ON cart_items FOR SELECT
-  TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "session_write_carts" ON carts;
+CREATE POLICY "session_write_carts" ON carts FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (session_id = public.current_session_header());
 
-DROP POLICY IF EXISTS "public_write_cart_items" ON cart_items;
-CREATE POLICY "public_write_cart_items" ON cart_items FOR ALL
-  TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "session_update_carts" ON carts;
+CREATE POLICY "session_update_carts" ON carts FOR UPDATE
+  TO anon, authenticated
+  USING (session_id = public.current_session_header())
+  WITH CHECK (session_id = public.current_session_header());
 
-DROP POLICY IF EXISTS "public_write_products" ON products;
-CREATE POLICY "public_write_products" ON products FOR ALL
-  TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "session_delete_carts" ON carts;
+CREATE POLICY "session_delete_carts" ON carts FOR DELETE
+  TO anon, authenticated
+  USING (session_id = public.current_session_header());
 
-DROP POLICY IF EXISTS "public_write_product_images" ON product_images;
-CREATE POLICY "public_write_product_images" ON product_images FOR ALL
-  TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "session_read_cart_items" ON cart_items;
+CREATE POLICY "session_read_cart_items" ON cart_items FOR SELECT
+  TO anon, authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.carts c
+      WHERE c.id = cart_items.cart_id
+        AND c.session_id = public.current_session_header()
+    )
+  );
 
-DROP POLICY IF EXISTS "public_write_product_skus" ON product_skus;
-CREATE POLICY "public_write_product_skus" ON product_skus FOR ALL
-  TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "session_write_cart_items" ON cart_items;
+CREATE POLICY "session_write_cart_items" ON cart_items FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.carts c
+      WHERE c.id = cart_items.cart_id
+        AND c.session_id = public.current_session_header()
+    )
+  );
 
-DROP POLICY IF EXISTS "public_write_categories" ON categories;
-CREATE POLICY "public_write_categories" ON categories FOR ALL
-  TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "session_update_cart_items" ON cart_items;
+CREATE POLICY "session_update_cart_items" ON cart_items FOR UPDATE
+  TO anon, authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.carts c
+      WHERE c.id = cart_items.cart_id
+        AND c.session_id = public.current_session_header()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.carts c
+      WHERE c.id = cart_items.cart_id
+        AND c.session_id = public.current_session_header()
+    )
+  );
+
+DROP POLICY IF EXISTS "session_delete_cart_items" ON cart_items;
+CREATE POLICY "session_delete_cart_items" ON cart_items FOR DELETE
+  TO anon, authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.carts c
+      WHERE c.id = cart_items.cart_id
+        AND c.session_id = public.current_session_header()
+    )
+  );
+
+-- Admin-side catalog writes are now authenticated-only; this requires a real Supabase auth session.
+DROP POLICY IF EXISTS "authenticated_write_products_admin" ON products;
+CREATE POLICY "authenticated_write_products_admin" ON products FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_write_product_images_admin" ON product_images;
+CREATE POLICY "authenticated_write_product_images_admin" ON product_images FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_write_product_skus_admin" ON product_skus;
+CREATE POLICY "authenticated_write_product_skus_admin" ON product_skus FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_write_categories_admin" ON categories;
+CREATE POLICY "authenticated_write_categories_admin" ON categories FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
