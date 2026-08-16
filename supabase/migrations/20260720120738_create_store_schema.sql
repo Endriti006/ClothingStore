@@ -135,7 +135,7 @@ ALTER TABLE product_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_skus ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
--- Public read policies (storefront catalog is intentionally public)
+-- Public catalog read policies remain intentionally open for storefront browsing.
 DROP POLICY IF EXISTS "anon_read_categories" ON categories;
 CREATE POLICY "anon_read_categories" ON categories FOR SELECT
   TO anon, authenticated USING (true);
@@ -155,3 +155,24 @@ CREATE POLICY "anon_read_product_skus" ON product_skus FOR SELECT
 DROP POLICY IF EXISTS "anon_read_approved_reviews" ON reviews;
 CREATE POLICY "anon_read_approved_reviews" ON reviews FOR SELECT
   TO anon, authenticated USING (approved = true);
+
+-- Restrict mutating catalog/admin data to authenticated users only.
+DROP POLICY IF EXISTS "authenticated_write_categories" ON categories;
+CREATE POLICY "authenticated_write_categories" ON categories FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_write_products" ON products;
+CREATE POLICY "authenticated_write_products" ON products FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_write_product_images" ON product_images;
+CREATE POLICY "authenticated_write_product_images" ON product_images FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_write_product_skus" ON product_skus;
+CREATE POLICY "authenticated_write_product_skus" ON product_skus FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_write_reviews" ON reviews;
+CREATE POLICY "authenticated_write_reviews" ON reviews FOR ALL
+  TO authenticated USING (true) WITH CHECK (true);
