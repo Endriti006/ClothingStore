@@ -17,10 +17,23 @@ CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DES
 
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "public_read_orders" ON public.orders;
-CREATE POLICY "public_read_orders" ON public.orders FOR SELECT
-  TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "session_read_orders" ON public.orders;
+CREATE POLICY "session_read_orders" ON public.orders FOR SELECT
+  TO anon, authenticated
+  USING (session_id = public.current_session_header());
 
-DROP POLICY IF EXISTS "public_write_orders" ON public.orders;
-CREATE POLICY "public_write_orders" ON public.orders FOR INSERT
-  TO anon, authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "session_insert_orders" ON public.orders;
+CREATE POLICY "session_insert_orders" ON public.orders FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (session_id = public.current_session_header());
+
+DROP POLICY IF EXISTS "session_update_orders" ON public.orders;
+CREATE POLICY "session_update_orders" ON public.orders FOR UPDATE
+  TO anon, authenticated
+  USING (session_id = public.current_session_header())
+  WITH CHECK (session_id = public.current_session_header());
+
+DROP POLICY IF EXISTS "session_delete_orders" ON public.orders;
+CREATE POLICY "session_delete_orders" ON public.orders FOR DELETE
+  TO anon, authenticated
+  USING (session_id = public.current_session_header());
