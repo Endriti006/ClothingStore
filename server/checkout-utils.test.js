@@ -54,5 +54,29 @@ test('validateShippingInfo requires the core shipping fields', () => {
   assert.deepEqual(result, {
     valid: false,
     errors: ['postalCode'],
+    normalized: {
+      name: 'Ada Lovelace',
+      phone: '5551234',
+      address: '123 Main St',
+      city: 'New York',
+      postalCode: '',
+      notes: '',
+    },
   });
+});
+
+test('validateShippingInfo strips unsafe HTML and normalizes sanitized values', () => {
+  const result = validateShippingInfo({
+    name: '<script>alert(1)</script> Ada',
+    phone: '555-1234',
+    address: '123 <b>Main</b> St',
+    city: 'New York',
+    postalCode: '10001',
+    notes: '<img src=x onerror=alert(1)>',
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(result.normalized.name, 'Ada');
+  assert.equal(result.normalized.address, '123 Main St');
+  assert.equal(result.normalized.notes, '');
 });

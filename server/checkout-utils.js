@@ -3,9 +3,14 @@ export async function getProductsByIds(productIds) {
   const { default: dotenv } = await import('dotenv');
   dotenv.config({ path: '.env' });
 
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error('Server is missing SUPABASE_SERVICE_ROLE_KEY. Product checkout validation requires admin database access.');
+  }
+
   const supabase = createClient(
     process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+    serviceRoleKey
   );
   if (!productIds.length) return [];
 
@@ -61,18 +66,43 @@ export function ensureProductsPurchasable(cartItems, products) {
   }
 }
 
+export function sanitizeText(value, options = {}) {
+  const maxLength = Number(options.maxLength ?? 200);
+  if (typeof value !== 'string') return '';
+
+  let next = value.replace(/\0/g, '').trim();
+  next = next.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+  next = next.replace(/<[^>]+>/g, ' ');
+  next = next.replace(/\s+/g, ' ');
+  next = next.replace(/[\u0000-\u001F\u007F]+/g, ' ');
+  next = next.replace(/\s+/g, ' ').trim();
+
+  if (!Number.isFinite(maxLength) || maxLength <= 0) {
+    return next;
+  }
+
+  return next.slice(0, maxLength).trim();
+}
+
 export function validateShippingInfo(shippingInfo) {
   const requiredFields = ['name', 'phone', 'address', 'city', 'postalCode'];
   const errors = [];
+  const normalized = {
+    name: sanitizeText(shippingInfo?.name, { maxLength: 80 }),
+    phone: sanitizeText(shippingInfo?.phone, { maxLength: 30 }),
+    address: sanitizeText(shippingInfo?.address, { maxLength: 200 }),
+    city: sanitizeText(shippingInfo?.city, { maxLength: 80 }),
+    postalCode: sanitizeText(shippingInfo?.postalCode, { maxLength: 20 }),
+    notes: sanitizeText(shippingInfo?.notes, { maxLength: 240 }),
+  };
 
   for (const field of requiredFields) {
-    const value = shippingInfo?.[field];
-    if (typeof value !== 'string' || value.trim() === '') {
+    if (!normalized[field]) {
       errors.push(field);
     }
   }
 
-  const phone = shippingInfo?.phone?.trim() || '';
+  const phone = normalized.phone;
   if (phone && !/^\+?[0-9\s()-]{7,15}$/.test(phone)) {
     errors.push('phoneFormat');
   }
@@ -80,6 +110,7 @@ export function validateShippingInfo(shippingInfo) {
   return {
     valid: errors.length === 0,
     errors,
+    normalized,
   };
 }
 
