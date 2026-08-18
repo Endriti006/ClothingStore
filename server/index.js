@@ -42,6 +42,15 @@ function assertAdminDbAccess() {
   }
 }
 
+// Redirect URLs must point at a single site; pick the requesting origin if it's allowed, else the first configured one.
+function resolveRedirectBaseUrl(req) {
+  const origin = req.get('origin');
+  if (origin && allowedOrigins.includes(origin)) {
+    return origin;
+  }
+  return configuredFrontendUrls[0] || 'http://localhost:5174';
+}
+
 async function reserveStockForItems(cartItems) {
   assertAdminDbAccess();
 
@@ -240,13 +249,14 @@ app.post('/api/checkout/create-session', async (req, res) => {
       .update(JSON.stringify({ items: cartItems, shippingInfo }))
       .digest('hex');
 
+    const redirectBaseUrl = resolveRedirectBaseUrl(req);
     const session = await stripe.checkout.sessions.create(
       {
         mode: 'payment',
         payment_method_types: ['card'],
         line_items: lineItems,
-        success_url: `${frontendUrl}/#/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_type=card`,
-        cancel_url: `${frontendUrl}/#/checkout/cancel`,
+        success_url: `${redirectBaseUrl}/#/checkout/success?session_id={CHECKOUT_SESSION_ID}&payment_type=card`,
+        cancel_url: `${redirectBaseUrl}/#/checkout/cancel`,
         metadata: {
           cart_items: JSON.stringify(cartItems),
           shipping_info: JSON.stringify(shippingInfo),
