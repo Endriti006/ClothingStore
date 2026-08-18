@@ -21,8 +21,10 @@ dotenv.config({ path: '.env' });
 const app = express();
 const port = Number(process.env.PORT || 3001);
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+// FRONTEND_URL may be a comma-separated list to allow multiple deployed frontends (e.g. staging + production).
+const configuredFrontendUrls = frontendUrl.split(',').map((url) => url.trim()).filter(Boolean);
 const allowedOrigins = Array.from(
-  new Set([frontendUrl, 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'])
+  new Set([...configuredFrontendUrls, 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'])
 ).filter(Boolean);
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
