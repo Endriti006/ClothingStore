@@ -35,11 +35,14 @@ const defaultShippingInfo: ShippingInfo = {
   notes: '',
 };
 
+// Deployed backend URL must be set via VITE_API_URL; falls back to local dev server.
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 async function createCheckoutSession(
   items: Array<{ id: string; quantity: number; size: string; color: string }>,
   shippingInfo: ShippingInfo
 ) {
-  const response = await fetch('http://localhost:3001/api/checkout/create-session', {
+  const response = await fetch(`${API_BASE_URL}/api/checkout/create-session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ items, shippingInfo }),
@@ -57,7 +60,7 @@ async function createCodOrder(
   items: Array<{ id: string; quantity: number; size: string; color: string }>,
   shippingInfo: ShippingInfo
 ) {
-  const response = await fetch('http://localhost:3001/api/orders/cod', {
+  const response = await fetch(`${API_BASE_URL}/api/orders/cod`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ items, shippingInfo }),
