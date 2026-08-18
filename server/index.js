@@ -223,6 +223,87 @@ app.use('/api/orders', rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many order requests. Please wait a few minutes and try again.' },
 }));
+
+// Registered before the global JSON parser so Stripe's raw body is preserved for signature verification.
+app.post(
+  '/api/webhooks/stripe',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    } catch (error) {
+      console.error('Webhook signature verification failed', error);
+      return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const cartItems = normalizeCartItems(JSON.parse(session.metadata?.cart_items || '[]'));
+      const shippingInfo = JSON.parse(session.metadata?.shipping_info || '{}');
+      const sessionId = session.id;
+
+      void (async () => {
+        try {
+          if (!cartItems.length) return;
+
+          const { data: existingOrder, error: lookupError } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('session_id', sessionId)
+            .maybeSingle();
+          if (lookupError) throw lookupError;
+          if (existingOrder) return;
+
+          const productIds = cartItems.map((item) => item.id);
+          const products = await getProductsByIds(productIds);
+          ensureProductsPurchasable(cartItems, products);
+
+          const lineItems = cartItems.map((item) => {
+            const product = products.find((entry) => entry.id === item.id);
+            if (!product) {
+              throw new Error(`Product not found: ${item.id}`);
+            }
+
+            return {
+              product_id: product.id,
+              name: product.name,
+              slug: product.slug,
+              size: item.size,
+              color: item.color,
+              quantity: item.quantity,
+              unit_price: Number(product.price),
+              line_total: Number(product.price) * Number(item.quantity || 1),
+            };
+          });
+
+          await persistOrderAndUpdateInventory(
+            {
+              session_id: sessionId,
+              status: 'paid',
+              payment_method: 'card',
+              payment_type: 'card',
+              total_amount: session.amount_total ? session.amount_total / 100 : 0,
+              currency: session.currency || 'usd',
+              shipping_info: shippingInfo,
+              line_items: lineItems,
+              payment_metadata: session,
+            },
+            cartItems
+          );
+        } catch (hookError) {
+          console.error('Webhook order persistence failed', hookError);
+        }
+      })();
+    }
+
+    return res.status(200).send('ok');
+  }
+);
+
 app.use(express.json({ limit: '1mb' }));
 
 app.post('/api/checkout/create-session', async (req, res) => {
@@ -330,85 +411,6 @@ app.post('/api/orders/cod', async (req, res) => {
     return res.status(500).json({ error: message });
   }
 });
-
-app.post(
-  '/api/webhooks/stripe',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
-
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-    } catch (error) {
-      console.error('Webhook signature verification failed', error);
-      return res.status(400).send(`Webhook Error: ${error.message}`);
-    }
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const cartItems = normalizeCartItems(JSON.parse(session.metadata?.cart_items || '[]'));
-      const shippingInfo = JSON.parse(session.metadata?.shipping_info || '{}');
-      const sessionId = session.id;
-
-      void (async () => {
-        try {
-          if (!cartItems.length) return;
-
-          const { data: existingOrder, error: lookupError } = await supabase
-            .from('orders')
-            .select('id')
-            .eq('session_id', sessionId)
-            .maybeSingle();
-          if (lookupError) throw lookupError;
-          if (existingOrder) return;
-
-          const productIds = cartItems.map((item) => item.id);
-          const products = await getProductsByIds(productIds);
-          ensureProductsPurchasable(cartItems, products);
-
-          const lineItems = cartItems.map((item) => {
-            const product = products.find((entry) => entry.id === item.id);
-            if (!product) {
-              throw new Error(`Product not found: ${item.id}`);
-            }
-
-            return {
-              product_id: product.id,
-              name: product.name,
-              slug: product.slug,
-              size: item.size,
-              color: item.color,
-              quantity: item.quantity,
-              unit_price: Number(product.price),
-              line_total: Number(product.price) * Number(item.quantity || 1),
-            };
-          });
-
-          await persistOrderAndUpdateInventory(
-            {
-              session_id: sessionId,
-              status: 'paid',
-              payment_method: 'card',
-              payment_type: 'card',
-              total_amount: session.amount_total ? session.amount_total / 100 : 0,
-              currency: session.currency || 'usd',
-              shipping_info: shippingInfo,
-              line_items: lineItems,
-              payment_metadata: session,
-            },
-            cartItems
-          );
-        } catch (hookError) {
-          console.error('Webhook order persistence failed', hookError);
-        }
-      })();
-    }
-
-    return res.status(200).send('ok');
-  }
-);
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
