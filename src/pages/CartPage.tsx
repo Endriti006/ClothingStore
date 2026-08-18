@@ -360,21 +360,21 @@ export function CartPage() {
       </div>
 
       {payOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-2 py-6 sm:items-center sm:p-4">
           <button
-            className="absolute inset-0 bg-stone-900/60"
+            className="fixed inset-0 bg-stone-900/60"
             aria-label="Close payment popup"
             onClick={() => setPayOpen(false)}
           />
-          <div className="relative w-full max-w-xl rounded-xl bg-white p-6 shadow-xl">
+          <div className="relative flex max-h-full w-full max-w-xl flex-col overflow-y-auto rounded-xl bg-white p-4 shadow-xl sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-stone-900">Checkout</h2>
+                <h2 className="text-lg font-bold text-stone-900 sm:text-xl">Checkout</h2>
                 <p className="mt-2 text-sm text-stone-600">Choose how you want to pay and add your shipping details.</p>
               </div>
               <button
                 onClick={() => setPayOpen(false)}
-                className="text-sm font-medium text-stone-500 hover:text-stone-900"
+                className="shrink-0 text-sm font-medium text-stone-500 hover:text-stone-900"
               >
                 Close
               </button>
@@ -498,18 +498,18 @@ export function CartPage() {
 
             {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               {step === 'shipping' ? (
                 <button
                   onClick={() => setStep('method')}
-                  className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-stone-300 text-sm font-medium text-stone-700"
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-stone-300 text-sm font-medium text-stone-700 sm:flex-1"
                 >
                   Back
                 </button>
               ) : (
                 <button
                   onClick={() => setPayOpen(false)}
-                  className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-stone-300 text-sm font-medium text-stone-700"
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-stone-300 text-sm font-medium text-stone-700 sm:flex-1"
                 >
                   Cancel
                 </button>
@@ -518,7 +518,7 @@ export function CartPage() {
               {step === 'method' ? (
                 <button
                   onClick={() => setStep('shipping')}
-                  className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800 sm:flex-1"
                 >
                   Continue
                 </button>
@@ -526,7 +526,7 @@ export function CartPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={checkingOut}
-                  className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-stone-900 text-sm font-semibold text-white hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
                 >
                   {checkingOut ? 'Processing…' : paymentMethod === 'card' ? 'Pay now' : 'Place order'}
                 </button>
